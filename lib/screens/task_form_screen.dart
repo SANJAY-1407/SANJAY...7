@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
+import '../models/alarm_sound_config.dart';
 import '../models/task_item.dart';
+import 'sound_selection_screen.dart';
 
 class TaskFormScreen extends StatefulWidget {
   final TaskItem? initialTask;
@@ -20,6 +22,12 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   late TimeOfDay _selectedTime;
   late String _selectedCategory;
   late String _selectedPriority;
+
+  // Day 6 Alarm Sound Configuration State
+  late String _alarmSoundType;
+  late String _alarmSoundName;
+  late String _alarmSoundUri;
+
   bool _isSaving = false;
 
   bool get isEditing => widget.initialTask != null;
@@ -50,6 +58,9 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       _selectedTime = TimeOfDay.fromDateTime(task.scheduledDateTime);
       _selectedCategory = task.category;
       _selectedPriority = task.priority;
+      _alarmSoundType = task.alarmSoundType;
+      _alarmSoundName = task.alarmSoundName;
+      _alarmSoundUri = task.alarmSoundUri;
     } else {
       _titleController = TextEditingController();
       _descriptionController = TextEditingController();
@@ -57,6 +68,9 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       _selectedTime = TimeOfDay.now();
       _selectedCategory = 'Personal';
       _selectedPriority = 'Medium';
+      _alarmSoundType = 'default';
+      _alarmSoundName = 'Default Alarm Sound';
+      _alarmSoundUri = 'default_alarm';
     }
   }
 
@@ -171,6 +185,9 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       priority: _selectedPriority,
       isCompleted: widget.initialTask?.isCompleted ?? false,
       createdAt: widget.initialTask?.createdAt ?? DateTime.now(),
+      alarmSoundType: _alarmSoundType,
+      alarmSoundName: _alarmSoundName,
+      alarmSoundUri: _alarmSoundUri,
     );
 
     Navigator.pop(context, task);
@@ -240,7 +257,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   textCapitalization: TextCapitalization.sentences,
                   style: const TextStyle(color: AppTheme.textWhite),
                   decoration: InputDecoration(
-                    hintText: 'e.g. Submit OS Project or Team Meeting',
+                    hintText: 'e.g. Submit Project or Team Meeting',
                     hintStyle: const TextStyle(color: AppTheme.textMuted),
                     filled: true,
                     fillColor: AppTheme.cardNavy,
@@ -313,7 +330,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                 // Date & Time Selectors Row
                 Row(
                   children: [
-                    // Date Selector Button
+                    // Date Selector
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,7 +386,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                     ),
                     const SizedBox(width: 14),
 
-                    // Time Selector Button
+                    // Time Selector
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -427,7 +444,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Category Selection Chips
+                // Category Chips
                 const Text(
                   'Category',
                   style: TextStyle(
@@ -471,7 +488,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Priority Selection Chips
+                // Priority Selection
                 const Text(
                   'Priority',
                   style: TextStyle(
@@ -523,6 +540,93 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                       ),
                     );
                   }).toList(),
+                ),
+                const SizedBox(height: 24),
+
+                // Day 6: Alarm Sound Selector Tile
+                const Text(
+                  'Alarm Sound',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textWhite,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () async {
+                    final result = await Navigator.push<AlarmSoundConfig>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SoundSelectionScreen(
+                          currentConfig: AlarmSoundConfig(
+                            soundType: _alarmSoundType,
+                            soundName: _alarmSoundName,
+                            soundUri: _alarmSoundUri,
+                          ),
+                        ),
+                      ),
+                    );
+                    if (result != null) {
+                      setState(() {
+                        _alarmSoundType = result.soundType;
+                        _alarmSoundName = result.soundName;
+                        _alarmSoundUri = result.soundUri;
+                      });
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardNavy,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppTheme.primaryPurple.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.notifications_active_rounded,
+                          size: 20,
+                          color: AppTheme.accentCyan,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Selected Ringtone / Sound',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.textMuted,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _alarmSoundName,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: AppTheme.textWhite,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 14,
+                          color: AppTheme.textMuted,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 36),
 

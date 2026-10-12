@@ -46,3 +46,15 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local Android SDK configuration
+/local.properties
+
+# Generated Android build files
+/android/build/
+
+# Local Java files
+/Java/
+
+# Local AI model files
+/gemma-4-4b/

@@ -20,8 +20,15 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('ALTER TABLE tasks ADD COLUMN alarmSoundType TEXT DEFAULT "default"');
+          await db.execute('ALTER TABLE tasks ADD COLUMN alarmSoundName TEXT DEFAULT "Default Alarm Sound"');
+          await db.execute('ALTER TABLE tasks ADD COLUMN alarmSoundUri TEXT DEFAULT "default_alarm"');
+        }
+      },
     );
   }
 
@@ -38,7 +45,10 @@ class DatabaseHelper {
         category $textType,
         priority $textType,
         isCompleted $integerType,
-        createdAt $textType
+        createdAt $textType,
+        alarmSoundType TEXT DEFAULT 'default',
+        alarmSoundName TEXT DEFAULT 'Default Alarm Sound',
+        alarmSoundUri TEXT DEFAULT 'default_alarm'
       )
     ''');
   }

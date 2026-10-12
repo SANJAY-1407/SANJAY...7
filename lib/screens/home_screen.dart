@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import '../models/task_item.dart';
+import '../services/alarm_service.dart';
 import '../services/database_helper.dart';
 import '../widgets/animated_entry.dart';
 import '../widgets/empty_state.dart';
@@ -26,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<TaskItem> _tasks = [];
   bool _isLoading = true;
 
-  // Day 4 & Day 5 Filter and Sort States
+  // Filter and Sort States
   StatusFilter _statusFilter = StatusFilter.all;
   String _categoryFilter = 'All';
   SortOption _sortOption = SortOption.dateTime;
@@ -51,7 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadTasksFromDatabase();
   }
 
-  /// Retrieve persistent tasks from SQLite database
+  /// Retrieve persistent tasks from SQLite database and reconcile alarms
   Future<void> _loadTasksFromDatabase() async {
     setState(() {
       _isLoading = true;
@@ -60,6 +61,9 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await DatabaseHelper.instance.seedInitialTasksIfEmpty();
       final loadedTasks = await DatabaseHelper.instance.getAllTasks();
+      
+      // Day 7: Reconcile scheduled alarms with loaded tasks
+      await AlarmService.instance.reconcileAllAlarms(loadedTasks);
 
       if (mounted) {
         setState(() {
@@ -142,15 +146,16 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  /// Persist completion status toggle to SQLite
+  /// Persist completion status toggle to SQLite and update alarm schedule
   Future<void> _toggleTaskCompletion(TaskItem task) async {
     setState(() {
       task.isCompleted = !task.isCompleted;
     });
     await DatabaseHelper.instance.updateTask(task);
+    await AlarmService.instance.scheduleTaskAlarm(task);
   }
 
-  /// Delete a task by ID from SQLite after confirmation
+  /// Delete a task by ID from SQLite and cancel its alarm after confirmation
   Future<void> _confirmDeleteTask(TaskItem task) async {
     final bool? confirm = await showDialog<bool>(
       context: context,
@@ -206,6 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (confirm == true) {
       await DatabaseHelper.instance.deleteTask(task.id);
+      await AlarmService.instance.cancelTaskAlarm(task.id);
       await _loadTasksFromDatabase();
 
       if (!mounted) return;
@@ -223,7 +229,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Persist new task to SQLite
+  /// Persist new task to SQLite and schedule alarm
   Future<void> _openAddTaskScreen() async {
     final newTask = await Navigator.push<TaskItem>(
       context,
@@ -234,6 +240,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (newTask != null) {
       await DatabaseHelper.instance.insertTask(newTask);
+      await AlarmService.instance.scheduleTaskAlarm(newTask);
       await _loadTasksFromDatabase();
 
       if (!mounted) return;
@@ -245,7 +252,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const Icon(Icons.check_circle_rounded, color: Colors.white),
               const SizedBox(width: 10),
               Expanded(
-                child: Text('Task "${newTask.title}" saved to database!'),
+                child: Text('Task "${newTask.title}" saved and alarm scheduled!'),
               ),
             ],
           ),
@@ -259,7 +266,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Persist updated task to SQLite
+  /// Persist updated task to SQLite and update alarm schedule
   Future<void> _openEditTaskScreen(TaskItem task) async {
     final updatedTask = await Navigator.push<TaskItem>(
       context,
@@ -270,6 +277,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (updatedTask != null) {
       await DatabaseHelper.instance.updateTask(updatedTask);
+      await AlarmService.instance.scheduleTaskAlarm(updatedTask);
       await _loadTasksFromDatabase();
 
       if (!mounted) return;
@@ -281,7 +289,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const Icon(Icons.task_alt_rounded, color: Colors.white),
               const SizedBox(width: 10),
               Expanded(
-                child: Text('Task "${updatedTask.title}" updated in database!'),
+                child: Text('Task "${updatedTask.title}" updated and alarm rescheduled!'),
               ),
             ],
           ),
@@ -356,7 +364,7 @@ class _HomeScreenState extends State<HomeScreen> {
             CircularProgressIndicator(color: AppTheme.accentCyan),
             SizedBox(height: 16),
             Text(
-              'Loading persistent tasks...',
+              'Loading persistent tasks & alarms...',
               style: TextStyle(color: AppTheme.textMuted, fontSize: 14),
             ),
           ],
@@ -506,7 +514,7 @@ class _HomeScreenState extends State<HomeScreen> {
               index: 5,
               child: EmptyState(
                 title: 'No Tasks Found! 📝',
-                message: 'Your task database is empty. Tap below to create your first persistent task.',
+                message: 'Your task database is empty. Tap below to create your first alarm task.',
                 onAction: _openAddTaskScreen,
               ),
             )

@@ -87,9 +87,11 @@ class ProgressCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 16),
+
+              // Animated Radial Progress Ring
               TweenAnimationBuilder<double>(
                 tween: Tween<double>(begin: 0.0, end: targetPercentage),
-                duration: const Duration(milliseconds: 600),
+                duration: const Duration(milliseconds: 650),
                 curve: Curves.easeOutCubic,
                 builder: (context, value, child) {
                   final int displayPercent = (value * 100).round();
@@ -125,25 +127,25 @@ class ProgressCard extends StatelessWidget {
           const Divider(color: Colors.white10, height: 1),
           const SizedBox(height: 14),
 
-          // 3 Stat Metrics: Total Today, Completed, Pending
+          // 3 Animated Stat Counters: Total Today, Completed, Pending
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildStatMetric(
                 label: 'Total Today',
-                value: '$totalTasks',
+                targetValue: totalTasks,
                 color: AppTheme.textWhite,
               ),
               Container(width: 1, height: 28, color: Colors.white10),
               _buildStatMetric(
                 label: 'Completed',
-                value: '$completedTasks',
+                targetValue: completedTasks,
                 color: AppTheme.successGreen,
               ),
               Container(width: 1, height: 28, color: Colors.white10),
               _buildStatMetric(
                 label: 'Pending',
-                value: '$pendingTasks',
+                targetValue: pendingTasks,
                 color: AppTheme.warningOrange,
               ),
             ],
@@ -155,18 +157,25 @@ class ProgressCard extends StatelessWidget {
 
   Widget _buildStatMetric({
     required String label,
-    required String value,
+    required int targetValue,
     required Color color,
   }) {
     return Column(
       children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
+        TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0.0, end: targetValue.toDouble()),
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutCubic,
+          builder: (context, val, child) {
+            return Text(
+              '${val.round()}',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            );
+          },
         ),
         const SizedBox(height: 2),
         Text(

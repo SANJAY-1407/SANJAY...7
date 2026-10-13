@@ -6,8 +6,13 @@ import 'sound_selection_screen.dart';
 
 class TaskFormScreen extends StatefulWidget {
   final TaskItem? initialTask;
+  final DateTime? initialDate;
 
-  const TaskFormScreen({super.key, this.initialTask});
+  const TaskFormScreen({
+    super.key,
+    this.initialTask,
+    this.initialDate,
+  });
 
   @override
   State<TaskFormScreen> createState() => _TaskFormScreenState();
@@ -64,7 +69,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     } else {
       _titleController = TextEditingController();
       _descriptionController = TextEditingController();
-      _selectedDate = DateTime.now();
+      _selectedDate = widget.initialDate ?? DateTime.now();
       _selectedTime = TimeOfDay.now();
       _selectedCategory = 'Personal';
       _selectedPriority = 'Medium';

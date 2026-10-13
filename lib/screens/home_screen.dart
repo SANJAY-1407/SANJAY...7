@@ -9,6 +9,8 @@ import '../widgets/empty_state.dart';
 import '../widgets/progress_card.dart';
 import '../widgets/section_header.dart';
 import '../widgets/task_card.dart';
+import 'calendar_screen.dart';
+import 'profile_screen.dart';
 import 'task_form_screen.dart';
 
 enum StatusFilter { all, pending, completed, overdue }
@@ -331,36 +333,44 @@ class _HomeScreenState extends State<HomeScreen> {
           index: _currentBottomNavIndex,
           children: [
             _buildDashboardView(),
-            _buildPlaceholderView('Calendar Schedule', Icons.calendar_month_rounded),
+            CalendarScreen(
+              tasks: _tasks,
+              onRefreshTasks: _loadTasksFromDatabase,
+            ),
             _buildPlaceholderView('Productivity Insights', Icons.insights_rounded),
-            _buildPlaceholderView('App Settings', Icons.settings_rounded),
-          ],
-        ),
-      ),
-      floatingActionButton: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.primaryPurple.withValues(alpha: 0.45),
-              blurRadius: 16,
-              spreadRadius: 2,
-              offset: const Offset(0, 4),
+            ProfileScreen(
+              tasks: _tasks,
+              onRefreshTasks: _loadTasksFromDatabase,
             ),
           ],
         ),
-        child: FloatingActionButton.extended(
-          onPressed: () {
-            HapticFeedback.lightImpact();
-            _openAddTaskScreen();
-          },
-          icon: const Icon(Icons.add_rounded),
-          label: const Text(
-            'New Task',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
       ),
+      floatingActionButton: _currentBottomNavIndex == 0
+          ? Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primaryPurple.withValues(alpha: 0.45),
+                    blurRadius: 16,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: FloatingActionButton.extended(
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  _openAddTaskScreen();
+                },
+                icon: const Icon(Icons.add_rounded),
+                label: const Text(
+                  'New Task',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            )
+          : null,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentBottomNavIndex,
         onTap: (index) {
@@ -375,7 +385,8 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today_rounded),
+            icon: Icon(Icons.calendar_month_rounded),
+            activeIcon: Icon(Icons.calendar_month_rounded),
             label: 'Calendar',
           ),
           BottomNavigationBarItem(
@@ -383,9 +394,9 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Insights',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings_rounded),
-            label: 'Settings',
+            icon: Icon(Icons.person_outline_rounded),
+            activeIcon: Icon(Icons.person_rounded),
+            label: 'Profile',
           ),
         ],
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../core/theme/app_theme.dart';
 import '../models/task_item.dart';
 import '../services/alarm_service.dart';
@@ -52,6 +53,18 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadTasksFromDatabase();
   }
 
+  /// Time-appropriate greeting based on device hour
+  String get _timeGreeting {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Good Morning! ☀️';
+    } else if (hour < 17) {
+      return 'Good Afternoon! 🌤️';
+    } else {
+      return 'Good Evening! 🌙';
+    }
+  }
+
   /// Retrieve persistent tasks from SQLite database and reconcile alarms
   Future<void> _loadTasksFromDatabase() async {
     setState(() {
@@ -61,8 +74,8 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await DatabaseHelper.instance.seedInitialTasksIfEmpty();
       final loadedTasks = await DatabaseHelper.instance.getAllTasks();
-      
-      // Day 7: Reconcile scheduled alarms with loaded tasks
+
+      // Reconcile scheduled alarms with loaded tasks
       await AlarmService.instance.reconcileAllAlarms(loadedTasks);
 
       if (mounted) {
@@ -139,6 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _statusFilter != StatusFilter.all || _categoryFilter != 'All';
 
   void _resetFilters() {
+    HapticFeedback.lightImpact();
     setState(() {
       _statusFilter = StatusFilter.all;
       _categoryFilter = 'All';
@@ -187,14 +201,20 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                Navigator.pop(context, false);
+              },
               child: const Text(
                 'Cancel',
                 style: TextStyle(color: AppTheme.textMuted),
               ),
             ),
             ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                Navigator.pop(context, true);
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.urgentRed,
                 foregroundColor: Colors.white,
@@ -317,17 +337,34 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openAddTaskScreen,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text(
-          'New Task',
-          style: TextStyle(fontWeight: FontWeight.bold),
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primaryPurple.withValues(alpha: 0.45),
+              blurRadius: 16,
+              spreadRadius: 2,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: FloatingActionButton.extended(
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            _openAddTaskScreen();
+          },
+          icon: const Icon(Icons.add_rounded),
+          label: const Text(
+            'New Task',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentBottomNavIndex,
         onTap: (index) {
+          HapticFeedback.selectionClick();
           setState(() {
             _currentBottomNavIndex = index;
           });
@@ -425,6 +462,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 IconButton(
                   onPressed: () {
+                    HapticFeedback.selectionClick();
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('No new notifications'),
@@ -451,22 +489,22 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 20),
 
-          // 2. Greeting Header
-          const AnimatedEntry(
+          // 2. Time-Appropriate Greeting Header
+          AnimatedEntry(
             index: 1,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Welcome Back! 👋',
-                  style: TextStyle(
+                  _timeGreeting,
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.textWhite,
                   ),
                 ),
-                SizedBox(height: 4),
-                Text(
+                const SizedBox(height: 4),
+                const Text(
                   'Let\'s organize and accomplish your targets today.',
                   style: TextStyle(
                     fontSize: 14,
@@ -478,7 +516,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 20),
 
-          // 3. Dynamic Today Statistics Card
+          // 3. Dynamic Today Statistics Progress Card
           AnimatedEntry(
             index: 2,
             child: ProgressCard(
@@ -583,6 +621,7 @@ class _HomeScreenState extends State<HomeScreen> {
               PopupMenuButton<SortOption>(
                 initialValue: _sortOption,
                 onSelected: (option) {
+                  HapticFeedback.selectionClick();
                   setState(() {
                     _sortOption = option;
                   });
@@ -692,6 +731,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       }).toList(),
                       onChanged: (value) {
                         if (value != null) {
+                          HapticFeedback.selectionClick();
                           setState(() {
                             _categoryFilter = value;
                           });
@@ -717,6 +757,7 @@ class _HomeScreenState extends State<HomeScreen> {
       selected: isSelected,
       onSelected: (selected) {
         if (selected) {
+          HapticFeedback.selectionClick();
           setState(() {
             _statusFilter = filter;
           });

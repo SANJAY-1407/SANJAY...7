@@ -58,3 +58,5 @@ app.*.map.json
 
 # Local AI model files
 /gemma-4-4b/
+/android/.downloadIntermediates/
+/android/system-images/

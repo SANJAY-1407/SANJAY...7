@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../core/theme/app_theme.dart';
 import '../models/task_item.dart';
 
@@ -23,6 +24,34 @@ class TaskCard extends StatelessWidget {
       case 'medium':
         return AppTheme.warningOrange;
       case 'low':
+      default:
+        return AppTheme.accentCyan;
+    }
+  }
+
+  Color _getCategoryColor() {
+    switch (task.category.toLowerCase()) {
+      case 'personal':
+        return const Color(0xFFA855F7); // Purple
+      case 'work':
+        return const Color(0xFF3B82F6); // Blue
+      case 'study':
+      case 'college':
+        return const Color(0xFF10B981); // Emerald
+      case 'health':
+      case 'fitness':
+        return const Color(0xFFEC4899); // Pink
+      case 'shopping':
+        return const Color(0xFFF59E0B); // Amber
+      case 'meetings':
+        return const Color(0xFF06B6D4); // Cyan
+      case 'bills':
+        return const Color(0xFFEF4444); // Red
+      case 'family':
+        return const Color(0xFF6366F1); // Indigo
+      case 'coding':
+        return const Color(0xFF14B8A6); // Teal
+      case 'other':
       default:
         return AppTheme.accentCyan;
     }
@@ -60,6 +89,7 @@ class TaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final priorityColor = _getPriorityColor();
+    final categoryColor = _getCategoryColor();
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -90,7 +120,10 @@ class TaskCard extends StatelessWidget {
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
-          onTap: onEditTask,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            onEditTask();
+          },
           borderRadius: BorderRadius.circular(20),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -98,7 +131,10 @@ class TaskCard extends StatelessWidget {
               children: [
                 // Interactive Checkbox
                 GestureDetector(
-                  onTap: onToggleCompleted,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    onToggleCompleted();
+                  },
                   behavior: HitTestBehavior.opaque,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 250),
@@ -126,17 +162,20 @@ class TaskCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 14),
 
-                // Category Icon
+                // Category Icon with Category Accent Color
                 Container(
                   padding: const EdgeInsets.all(9),
                   decoration: BoxDecoration(
-                    color: AppTheme.darkBackground,
+                    color: categoryColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: categoryColor.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Icon(
                     _getCategoryIcon(),
                     size: 20,
-                    color: AppTheme.accentCyan,
+                    color: categoryColor,
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -222,10 +261,10 @@ class TaskCard extends StatelessWidget {
                           const SizedBox(width: 12),
                           Text(
                             task.category,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: AppTheme.accentCyan,
-                              fontWeight: FontWeight.w500,
+                              color: categoryColor,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -265,7 +304,10 @@ class TaskCard extends StatelessWidget {
                           color: AppTheme.textMuted.withValues(alpha: 0.7),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
-                          onPressed: onEditTask,
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            onEditTask();
+                          },
                           tooltip: 'Edit Task',
                         ),
                         if (onDeleteTask != null) ...[
@@ -275,7 +317,10 @@ class TaskCard extends StatelessWidget {
                             color: AppTheme.urgentRed.withValues(alpha: 0.8),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            onPressed: onDeleteTask,
+                            onPressed: () {
+                              HapticFeedback.lightImpact();
+                              onDeleteTask!();
+                            },
                             tooltip: 'Delete Task',
                           ),
                         ],

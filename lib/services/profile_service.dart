@@ -42,6 +42,7 @@ class ProfileService {
       displayName: displayName,
       email: email,
       avatarInitials: UserProfile.deriveInitials(displayName),
+      avatarPath: current.avatarPath,
       isAuthenticated: true,
       enableNotifications: current.enableNotifications,
     );
@@ -52,10 +53,12 @@ class ProfileService {
 
   /// Register new user account
   Future<UserProfile> register(String name, String email, String password) async {
+    final current = await getUserProfile();
     final newProfile = UserProfile(
       displayName: name.trim(),
       email: email.trim(),
       avatarInitials: UserProfile.deriveInitials(name),
+      avatarPath: current.avatarPath,
       isAuthenticated: true,
       enableNotifications: true,
     );

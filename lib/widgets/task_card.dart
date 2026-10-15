@@ -104,8 +104,8 @@ class TaskCard extends StatelessWidget {
           color: task.isOverdue
               ? AppTheme.urgentRed.withValues(alpha: 0.6)
               : (task.isCompleted
-              ? Colors.white.withValues(alpha: 0.05)
-              : AppTheme.primaryPurple.withValues(alpha: 0.25)),
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : AppTheme.primaryPurple.withValues(alpha: 0.25)),
           width: task.isOverdue ? 1.5 : 1.0,
         ),
         boxShadow: [
@@ -127,72 +127,107 @@ class TaskCard extends StatelessWidget {
           },
           borderRadius: BorderRadius.circular(20),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Premium Animated Checkbox
-                PremiumTaskCheckbox(
-                  value: task.isCompleted,
-                  onChanged: (_) {
-                    HapticFeedback.lightImpact();
-                    onToggleCompleted();
-                  },
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: PremiumTaskCheckbox(
+                    value: task.isCompleted,
+                    onChanged: (_) {
+                      HapticFeedback.lightImpact();
+                      onToggleCompleted();
+                    },
+                  ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 10),
 
-                // Category Icon with Category Accent Color
-                Container(
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                    color: categoryColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: categoryColor.withValues(alpha: 0.3),
+                // Category Icon
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: categoryColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: categoryColor.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Icon(
+                      _getCategoryIcon(),
+                      size: 18,
+                      color: categoryColor,
                     ),
                   ),
-                  child: Icon(
-                    _getCategoryIcon(),
-                    size: 20,
-                    color: categoryColor,
-                  ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 10),
 
-                // Title & Details
+                // Main details column (Expanded & Flexible to prevent overflow)
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Overdue Indicator Chip
-                      if (task.isOverdue) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          margin: const EdgeInsets.only(bottom: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.urgentRed.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppTheme.urgentRed.withValues(alpha: 0.5)),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.error_outline_rounded, size: 11, color: AppTheme.urgentRed),
-                              SizedBox(width: 4),
-                              Text(
-                                'OVERDUE',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.urgentRed,
-                                  letterSpacing: 0.5,
-                                ),
+                      // Status & Priority Badge Row (Wrapped to adapt cleanly)
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (task.isOverdue)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.urgentRed.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: AppTheme.urgentRed.withValues(alpha: 0.5)),
                               ),
-                            ],
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.error_outline_rounded, size: 10, color: AppTheme.urgentRed),
+                                  SizedBox(width: 3),
+                                  Text(
+                                    'OVERDUE',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.urgentRed,
+                                      letterSpacing: 0.4,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: priorityColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: priorityColor.withValues(alpha: 0.4),
+                              ),
+                            ),
+                            child: Text(
+                              '${task.priority} Priority',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: priorityColor,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+
+                      // Task Title
                       Text(
                         task.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
@@ -205,6 +240,7 @@ class TaskCard extends StatelessWidget {
                           decorationColor: AppTheme.textMuted,
                         ),
                       ),
+
                       if (task.description.isNotEmpty) ...[
                         const SizedBox(height: 3),
                         Text(
@@ -217,32 +253,49 @@ class TaskCard extends StatelessWidget {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 6),
-                      Row(
+
+                      const SizedBox(height: 8),
+
+                      // Time & Category Metadata Row (Wrapped to avoid spill)
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Icon(
-                            Icons.access_time_rounded,
-                            size: 13,
-                            color: task.isOverdue ? AppTheme.urgentRed : AppTheme.textMuted,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.access_time_rounded,
+                                size: 12,
+                                color: task.isOverdue ? AppTheme.urgentRed : AppTheme.textMuted,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                task.isToday
+                                    ? task.formattedTime
+                                    : '${task.formattedDate} • ${task.formattedTime}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: task.isOverdue ? AppTheme.urgentRed : AppTheme.textMuted,
+                                  fontWeight: task.isOverdue ? FontWeight.w600 : FontWeight.normal,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            task.isToday
-                                ? task.formattedTime
-                                : '${task.formattedDate} • ${task.formattedTime}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: task.isOverdue ? AppTheme.urgentRed : AppTheme.textMuted,
-                              fontWeight: task.isOverdue ? FontWeight.w600 : FontWeight.normal,
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: categoryColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            task.category,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: categoryColor,
-                              fontWeight: FontWeight.w600,
+                            child: Text(
+                              task.category,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: categoryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
@@ -250,60 +303,37 @@ class TaskCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
 
-                // Priority Badge & Actions (Edit / Delete)
+                // Edit / Delete Action Column
                 Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: priorityColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: priorityColor.withValues(alpha: 0.4),
-                        ),
-                      ),
-                      child: Text(
-                        task.priority,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: priorityColor,
-                        ),
-                      ),
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      color: AppTheme.textMuted.withValues(alpha: 0.8),
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(),
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        onEditTask();
+                      },
+                      tooltip: 'Edit Task',
                     ),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined, size: 18),
-                          color: AppTheme.textMuted.withValues(alpha: 0.7),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onPressed: () {
-                            HapticFeedback.lightImpact();
-                            onEditTask();
-                          },
-                          tooltip: 'Edit Task',
-                        ),
-                        if (onDeleteTask != null) ...[
-                          const SizedBox(width: 10),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                            color: AppTheme.urgentRed.withValues(alpha: 0.8),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () {
-                              HapticFeedback.lightImpact();
-                              onDeleteTask!();
-                            },
-                            tooltip: 'Delete Task',
-                          ),
-                        ],
-                      ],
-                    ),
+                    if (onDeleteTask != null) ...[
+                      const SizedBox(height: 8),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                        color: AppTheme.urgentRed.withValues(alpha: 0.8),
+                        padding: const EdgeInsets.all(4),
+                        constraints: const BoxConstraints(),
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          onDeleteTask!();
+                        },
+                        tooltip: 'Delete Task',
+                      ),
+                    ],
                   ],
                 ),
               ],

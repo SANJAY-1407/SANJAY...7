@@ -1,4 +1,9 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import '../core/theme/app_theme.dart';
 import '../models/user_profile.dart';
 import '../services/profile_service.dart';
@@ -16,6 +21,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _emailController;
+  String? _avatarPath;
   bool _isSaving = false;
 
   @override
@@ -23,6 +29,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
     _nameController = TextEditingController(text: widget.currentProfile.displayName);
     _emailController = TextEditingController(text: widget.currentProfile.email);
+    _avatarPath = widget.currentProfile.avatarPath;
   }
 
   @override
@@ -30,6 +37,58 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameController.dispose();
     _emailController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickProfilePhoto() async {
+    HapticFeedback.lightImpact();
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.isNotEmpty && result.files.single.path != null) {
+        final pickedPath = result.files.single.path!;
+        final sourceFile = File(pickedPath);
+
+        if (await sourceFile.exists()) {
+          final appDir = await getApplicationDocumentsDirectory();
+          final ext = p.extension(pickedPath).isNotEmpty ? p.extension(pickedPath) : '.jpg';
+          final savedFileName = 'avatar_${DateTime.now().millisecondsSinceEpoch}$ext';
+          final persistentFile = await sourceFile.copy('${appDir.path}/$savedFileName');
+
+          setState(() {
+            _avatarPath = persistentFile.path;
+          });
+
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profile photo selected! Save changes to apply.'),
+              backgroundColor: AppTheme.primaryPurple,
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not select profile photo: $e'),
+          backgroundColor: AppTheme.urgentRed,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  void _removeProfilePhoto() {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _avatarPath = null;
+    });
   }
 
   Future<void> _saveProfile() async {
@@ -46,6 +105,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       displayName: newName,
       email: newEmail,
       avatarInitials: UserProfile.deriveInitials(newName),
+      avatarPath: _avatarPath,
+      clearAvatarPath: _avatarPath == null,
     );
 
     await ProfileService.instance.saveUserProfile(updatedProfile);
@@ -60,6 +121,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
 
     Navigator.pop(context, updatedProfile);
+  }
+
+  bool get _hasValidAvatarFile {
+    if (_avatarPath == null || _avatarPath!.isEmpty) return false;
+    try {
+      return File(_avatarPath!).existsSync();
+    } catch (_) {
+      return false;
+    }
   }
 
   @override
@@ -81,39 +151,107 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Avatar Preview
+                // Avatar Preview & Picker Trigger
                 Center(
-                  child: Stack(
-                    alignment: Alignment.bottomRight,
+                  child: Column(
                     children: [
-                      CircleAvatar(
-                        radius: 46,
-                        backgroundColor: AppTheme.primaryPurple,
-                        child: Text(
-                          UserProfile.deriveInitials(_nameController.text),
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+                      GestureDetector(
+                        onTap: _pickProfilePhoto,
+                        child: Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppTheme.accentCyan,
+                                  width: 2.5,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.primaryPurple.withValues(alpha: 0.3),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: CircleAvatar(
+                                radius: 46,
+                                backgroundColor: AppTheme.primaryPurple,
+                                backgroundImage: _hasValidAvatarFile
+                                    ? FileImage(File(_avatarPath!))
+                                    : null,
+                                child: !_hasValidAvatarFile
+                                    ? Text(
+                                        UserProfile.deriveInitials(_nameController.text),
+                                        style: const TextStyle(
+                                          fontSize: 32,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: const BoxDecoration(
+                                color: AppTheme.accentCyan,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black38,
+                                    blurRadius: 6,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt_rounded,
+                                size: 18,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                          color: AppTheme.accentCyan,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.edit_rounded,
-                          size: 16,
-                          color: Colors.black,
-                        ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          TextButton.icon(
+                            onPressed: _pickProfilePhoto,
+                            icon: const Icon(Icons.photo_library_outlined, size: 16, color: AppTheme.accentCyan),
+                            label: const Text(
+                              'Select Photo',
+                              style: TextStyle(
+                                color: AppTheme.accentCyan,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          if (_hasValidAvatarFile) ...[
+                            const SizedBox(width: 8),
+                            TextButton.icon(
+                              onPressed: _removeProfilePhoto,
+                              icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AppTheme.urgentRed),
+                              label: const Text(
+                                'Remove',
+                                style: TextStyle(
+                                  color: AppTheme.urgentRed,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
 
                 // Display Name Field
                 const Text(

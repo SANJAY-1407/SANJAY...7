@@ -247,38 +247,47 @@ class _CalendarScreenState extends State<CalendarScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Screen Header & Month Navigation
+              // Screen Header & Month Navigation (Responsive to prevent overflow)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${_months[_focusedMonth.month - 1]} ${_focusedMonth.year}',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textWhite,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${_months[_focusedMonth.month - 1]} ${_focusedMonth.year}',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textWhite,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      const Text(
-                        'Select a date to view or manage tasks',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textMuted,
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Select a date to view or manage tasks',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textMuted,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       // Today Shortcut Button
                       TextButton(
                         onPressed: _goToToday,
                         style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                           backgroundColor: AppTheme.primaryPurple.withValues(alpha: 0.2),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
@@ -298,18 +307,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 4),
 
                       // Prev Month
                       IconButton(
-                        icon: const Icon(Icons.chevron_left_rounded, color: AppTheme.textWhite),
+                        icon: const Icon(Icons.chevron_left_rounded, color: AppTheme.textWhite, size: 22),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         onPressed: _prevMonth,
                         tooltip: 'Previous Month',
                       ),
+                      const SizedBox(width: 4),
 
                       // Next Month
                       IconButton(
-                        icon: const Icon(Icons.chevron_right_rounded, color: AppTheme.textWhite),
+                        icon: const Icon(Icons.chevron_right_rounded, color: AppTheme.textWhite, size: 22),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         onPressed: _nextMonth,
                         tooltip: 'Next Month',
                       ),
@@ -319,158 +333,169 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Calendar Card Container
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppTheme.cardNavy,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: AppTheme.primaryPurple.withValues(alpha: 0.25),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.25),
-                      blurRadius: 14,
-                      offset: const Offset(0, 6),
+              // Calendar Card Container with Restrained Month Change Animations
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: child,
+                  );
+                },
+                child: Container(
+                  key: ValueKey('${_focusedMonth.year}-${_focusedMonth.month}'),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardNavy,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: AppTheme.primaryPurple.withValues(alpha: 0.25),
                     ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Weekday Labels Row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: _weekdays.map((day) {
-                        return SizedBox(
-                          width: 36,
-                          child: Text(
-                            day,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.accentCyan,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Calendar Grid View
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: totalGridCells,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 7,
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
                       ),
-                      itemBuilder: (context, index) {
-                        if (index < leadingPadding) {
-                          return const SizedBox.shrink(); // Empty slot before first weekday
-                        }
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      // Weekday Labels Row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: _weekdays.map((day) {
+                          return SizedBox(
+                            width: 36,
+                            child: Text(
+                              day,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.accentCyan,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 12),
 
-                        final dayNum = index - leadingPadding + 1;
-                        final cellDate = DateTime(_focusedMonth.year, _focusedMonth.month, dayNum);
-                        final isSelected = _isSameDay(cellDate, _selectedDate);
-                        final isTodayDate = _isSameDay(cellDate, now);
-                        final cellTasks = _getTasksForDate(cellDate);
+                      // Calendar Grid View
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: totalGridCells,
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 7,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                        ),
+                        itemBuilder: (context, index) {
+                          if (index < leadingPadding) {
+                            return const SizedBox.shrink(); // Empty slot before first weekday
+                          }
 
-                        final hasPending = cellTasks.any((t) => !t.isCompleted && !t.isOverdue);
-                        final hasCompleted = cellTasks.any((t) => t.isCompleted);
-                        final hasOverdue = cellTasks.any((t) => t.isOverdue);
+                          final dayNum = index - leadingPadding + 1;
+                          final cellDate = DateTime(_focusedMonth.year, _focusedMonth.month, dayNum);
+                          final isSelected = _isSameDay(cellDate, _selectedDate);
+                          final isTodayDate = _isSameDay(cellDate, now);
+                          final cellTasks = _getTasksForDate(cellDate);
 
-                        return GestureDetector(
-                          onTap: () {
-                            HapticFeedback.selectionClick();
-                            setState(() {
-                              _selectedDate = cellDate;
-                            });
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            decoration: BoxDecoration(
-                              gradient: isSelected ? AppTheme.primaryGradient : null,
-                              color: isSelected
-                                  ? null
-                                  : (isTodayDate
-                                      ? AppTheme.primaryPurple.withValues(alpha: 0.2)
-                                      : AppTheme.darkBackground),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
+                          final hasPending = cellTasks.any((t) => !t.isCompleted && !t.isOverdue);
+                          final hasCompleted = cellTasks.any((t) => t.isCompleted);
+                          final hasOverdue = cellTasks.any((t) => t.isOverdue);
+
+                          return GestureDetector(
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              setState(() {
+                                _selectedDate = cellDate;
+                              });
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeOutCubic,
+                              decoration: BoxDecoration(
+                                gradient: isSelected ? AppTheme.primaryGradient : null,
                                 color: isSelected
-                                    ? Colors.transparent
+                                    ? null
                                     : (isTodayDate
-                                        ? AppTheme.accentCyan
-                                        : Colors.white10),
-                                width: isTodayDate && !isSelected ? 1.5 : 1.0,
+                                        ? AppTheme.primaryPurple.withValues(alpha: 0.2)
+                                        : AppTheme.darkBackground),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? Colors.transparent
+                                      : (isTodayDate
+                                          ? AppTheme.accentCyan
+                                          : Colors.white10),
+                                  width: isTodayDate && !isSelected ? 1.5 : 1.0,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    '$dayNum',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: isSelected || isTodayDate
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : (isTodayDate
+                                              ? AppTheme.accentCyan
+                                              : AppTheme.textWhite),
+                                    ),
+                                  ),
+                                  if (cellTasks.isNotEmpty) ...[
+                                    const SizedBox(height: 3),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        if (hasOverdue)
+                                          Container(
+                                            width: 5,
+                                            height: 5,
+                                            margin: const EdgeInsets.symmetric(horizontal: 1),
+                                            decoration: const BoxDecoration(
+                                              color: AppTheme.urgentRed,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                        if (hasPending)
+                                          Container(
+                                            width: 5,
+                                            height: 5,
+                                            margin: const EdgeInsets.symmetric(horizontal: 1),
+                                            decoration: BoxDecoration(
+                                              color: isSelected ? Colors.white : AppTheme.accentCyan,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                        if (hasCompleted)
+                                          Container(
+                                            width: 5,
+                                            height: 5,
+                                            margin: const EdgeInsets.symmetric(horizontal: 1),
+                                            decoration: const BoxDecoration(
+                                              color: AppTheme.successGreen,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  '$dayNum',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: isSelected || isTodayDate
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : (isTodayDate
-                                            ? AppTheme.accentCyan
-                                            : AppTheme.textWhite),
-                                  ),
-                                ),
-                                if (cellTasks.isNotEmpty) ...[
-                                  const SizedBox(height: 3),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      if (hasOverdue)
-                                        Container(
-                                          width: 5,
-                                          height: 5,
-                                          margin: const EdgeInsets.symmetric(horizontal: 1),
-                                          decoration: const BoxDecoration(
-                                            color: AppTheme.urgentRed,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                      if (hasPending)
-                                        Container(
-                                          width: 5,
-                                          height: 5,
-                                          margin: const EdgeInsets.symmetric(horizontal: 1),
-                                          decoration: BoxDecoration(
-                                            color: isSelected ? Colors.white : AppTheme.accentCyan,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                      if (hasCompleted)
-                                        Container(
-                                          width: 5,
-                                          height: 5,
-                                          margin: const EdgeInsets.symmetric(horizontal: 1),
-                                          decoration: const BoxDecoration(
-                                            color: AppTheme.successGreen,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 28),
@@ -484,36 +509,38 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ),
               const SizedBox(height: 14),
 
-              // Agenda Task List or Empty State
-              if (_selectedDayTasks.isEmpty)
-                AnimatedEntry(
-                  index: 0,
-                  child: EmptyState(
-                    title: 'No Tasks Scheduled 📅',
-                    message: 'There are no tasks scheduled for ${_months[_selectedDate.month - 1]} ${_selectedDate.day}. Enjoy your free day or add a new task!',
-                    actionLabel: 'Add Task for This Date',
-                    onAction: _openAddTaskForSelectedDate,
-                  ),
-                )
-              else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _selectedDayTasks.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final task = _selectedDayTasks[index];
-                    return AnimatedEntry(
-                      index: index,
-                      child: TaskCard(
-                        task: task,
-                        onToggleCompleted: () => _toggleTaskCompletion(task),
-                        onEditTask: () => _openEditTaskScreen(task),
-                        onDeleteTask: () => _confirmDeleteTask(task),
-                      ),
-                    );
-                  },
+              // Agenda Task List or Empty State with smooth transitions
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: KeyedSubtree(
+                  key: ValueKey('${_selectedDate.year}-${_selectedDate.month}-${_selectedDate.day}-${_selectedDayTasks.length}'),
+                  child: _selectedDayTasks.isEmpty
+                      ? EmptyState(
+                          title: 'No Tasks Scheduled 📅',
+                          message: 'There are no tasks scheduled for ${_months[_selectedDate.month - 1]} ${_selectedDate.day}. Enjoy your free day or add a new task!',
+                          actionLabel: 'Add Task for This Date',
+                          onAction: _openAddTaskForSelectedDate,
+                        )
+                      : ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _selectedDayTasks.length,
+                          separatorBuilder: (context, index) => const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final task = _selectedDayTasks[index];
+                            return AnimatedEntry(
+                              index: index,
+                              child: TaskCard(
+                                task: task,
+                                onToggleCompleted: () => _toggleTaskCompletion(task),
+                                onEditTask: () => _openEditTaskScreen(task),
+                                onDeleteTask: () => _confirmDeleteTask(task),
+                              ),
+                            );
+                          },
+                        ),
                 ),
+              ),
 
               const SizedBox(height: 80), // Bottom Spacing
             ],

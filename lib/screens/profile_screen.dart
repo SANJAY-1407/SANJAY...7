@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/theme/app_theme.dart';
@@ -184,6 +185,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  bool get _hasValidAvatarFile {
+    if (_userProfile.avatarPath == null || _userProfile.avatarPath!.isEmpty) return false;
+    try {
+      return File(_userProfile.avatarPath!).existsSync();
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -232,16 +242,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 36,
-                      backgroundColor: AppTheme.primaryPurple,
-                      child: Text(
-                        _userProfile.avatarInitials,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppTheme.accentCyan.withValues(alpha: 0.6),
+                          width: 2,
                         ),
+                      ),
+                      child: CircleAvatar(
+                        radius: 36,
+                        backgroundColor: AppTheme.primaryPurple,
+                        backgroundImage: _hasValidAvatarFile
+                            ? FileImage(File(_userProfile.avatarPath!))
+                            : null,
+                        child: !_hasValidAvatarFile
+                            ? Text(
+                                _userProfile.avatarInitials,
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : null,
                       ),
                     ),
                     const SizedBox(width: 16),

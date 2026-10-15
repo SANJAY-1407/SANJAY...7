@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/theme/app_theme.dart';
 import '../models/task_item.dart';
+import 'premium_animations.dart';
 
 class TaskCard extends StatelessWidget {
   final TaskItem task;
@@ -103,8 +104,8 @@ class TaskCard extends StatelessWidget {
           color: task.isOverdue
               ? AppTheme.urgentRed.withValues(alpha: 0.6)
               : (task.isCompleted
-                  ? Colors.white.withValues(alpha: 0.05)
-                  : AppTheme.primaryPurple.withValues(alpha: 0.25)),
+              ? Colors.white.withValues(alpha: 0.05)
+              : AppTheme.primaryPurple.withValues(alpha: 0.25)),
           width: task.isOverdue ? 1.5 : 1.0,
         ),
         boxShadow: [
@@ -129,36 +130,13 @@ class TaskCard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                // Interactive Checkbox
-                GestureDetector(
-                  onTap: () {
+                // Premium Animated Checkbox
+                PremiumTaskCheckbox(
+                  value: task.isCompleted,
+                  onChanged: (_) {
                     HapticFeedback.lightImpact();
                     onToggleCompleted();
                   },
-                  behavior: HitTestBehavior.opaque,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: task.isCompleted ? AppTheme.primaryGradient : null,
-                      color: task.isCompleted ? null : Colors.transparent,
-                      border: Border.all(
-                        color: task.isCompleted
-                            ? Colors.transparent
-                            : AppTheme.textMuted,
-                        width: 2,
-                      ),
-                    ),
-                    child: task.isCompleted
-                        ? const Icon(
-                            Icons.check_rounded,
-                            size: 18,
-                            color: Colors.white,
-                          )
-                        : null,
-                  ),
                 ),
                 const SizedBox(width: 14),
 

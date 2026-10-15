@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../core/theme/app_theme.dart';
 import '../models/task_item.dart';
 import '../services/alarm_service.dart';
@@ -9,11 +10,13 @@ import '../widgets/empty_state.dart';
 import '../widgets/progress_card.dart';
 import '../widgets/section_header.dart';
 import '../widgets/task_card.dart';
+import '../widgets/premium_animations.dart';
 import 'calendar_screen.dart';
 import 'profile_screen.dart';
 import 'task_form_screen.dart';
 
 enum StatusFilter { all, pending, completed, overdue }
+
 enum SortOption { dateTime, priority, recentlyCreated }
 
 class HomeScreen extends StatefulWidget {
@@ -26,11 +29,9 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentBottomNavIndex = 0;
 
-  // In-memory task collection loaded from SQLite
   List<TaskItem> _tasks = [];
   bool _isLoading = true;
 
-  // Filter and Sort States
   StatusFilter _statusFilter = StatusFilter.all;
   String _categoryFilter = 'All';
   SortOption _sortOption = SortOption.dateTime;
@@ -55,9 +56,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadTasksFromDatabase();
   }
 
-  /// Time-appropriate greeting based on device hour
   String get _timeGreeting {
     final hour = DateTime.now().hour;
+
     if (hour < 12) {
       return 'Good Morning! ☀️';
     } else if (hour < 17) {
@@ -67,83 +68,100 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Retrieve persistent tasks from SQLite database and reconcile alarms
   Future<void> _loadTasksFromDatabase() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
     });
 
     try {
       await DatabaseHelper.instance.seedInitialTasksIfEmpty();
-      final loadedTasks = await DatabaseHelper.instance.getAllTasks();
 
-      // Reconcile scheduled alarms with loaded tasks
+      final loadedTasks =
+      await DatabaseHelper.instance.getAllTasks();
+
+      // Preserve the existing alarm reconciliation.
       await AlarmService.instance.reconcileAllAlarms(loadedTasks);
 
-      if (mounted) {
-        setState(() {
-          _tasks = loadedTasks;
-          _isLoading = false;
-        });
-      }
+      if (!mounted) return;
+
+      setState(() {
+        _tasks = loadedTasks;
+        _isLoading = false;
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading persistent tasks: $e'),
-            backgroundColor: AppTheme.urgentRed,
-          ),
-        );
-      }
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading persistent tasks: $e'),
+          backgroundColor: AppTheme.urgentRed,
+        ),
+      );
     }
   }
 
-  // Statistics calculated ONLY from Today's calendar date tasks
   List<TaskItem> get _todayTasks {
-    return _tasks.where((t) => t.isToday).toList();
+    return _tasks.where((task) => task.isToday).toList();
   }
 
   int get _totalTodayCount => _todayTasks.length;
-  int get _completedTodayCount => _todayTasks.where((t) => t.isCompleted).length;
-  int get _pendingTodayCount => _todayTasks.where((t) => !t.isCompleted).length;
 
-  // Filtered and Sorted task list for UI view
+  int get _completedTodayCount =>
+      _todayTasks.where((task) => task.isCompleted).length;
+
+  int get _pendingTodayCount =>
+      _todayTasks.where((task) => !task.isCompleted).length;
+
   List<TaskItem> get _displayedTasks {
     List<TaskItem> list = List.from(_tasks);
 
-    // 1. Status Filter
     switch (_statusFilter) {
       case StatusFilter.pending:
-        list = list.where((t) => !t.isCompleted).toList();
+        list = list.where((task) => !task.isCompleted).toList();
         break;
+
       case StatusFilter.completed:
-        list = list.where((t) => t.isCompleted).toList();
+        list = list.where((task) => task.isCompleted).toList();
         break;
+
       case StatusFilter.overdue:
-        list = list.where((t) => t.isOverdue).toList();
+        list = list.where((task) => task.isOverdue).toList();
         break;
+
       case StatusFilter.all:
         break;
     }
 
-    // 2. Category Filter
     if (_categoryFilter != 'All') {
-      list = list.where((t) => t.category == _categoryFilter).toList();
+      list = list
+          .where((task) => task.category == _categoryFilter)
+          .toList();
     }
 
-    // 3. Sorting
     switch (_sortOption) {
       case SortOption.priority:
-        list.sort((a, b) => b.priorityWeight.compareTo(a.priorityWeight));
+        list.sort(
+              (a, b) => b.priorityWeight.compareTo(a.priorityWeight),
+        );
         break;
+
       case SortOption.recentlyCreated:
-        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        list.sort(
+              (a, b) => b.createdAt.compareTo(a.createdAt),
+        );
         break;
+
       case SortOption.dateTime:
-        list.sort((a, b) => a.scheduledDateTime.compareTo(b.scheduledDateTime));
+        list.sort(
+              (a, b) =>
+              a.scheduledDateTime.compareTo(b.scheduledDateTime),
+        );
         break;
     }
 
@@ -151,10 +169,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   bool get _hasActiveFilters =>
-      _statusFilter != StatusFilter.all || _categoryFilter != 'All';
+      _statusFilter != StatusFilter.all ||
+          _categoryFilter != 'All';
 
   void _resetFilters() {
     HapticFeedback.lightImpact();
+
     setState(() {
       _statusFilter = StatusFilter.all;
       _categoryFilter = 'All';
@@ -162,16 +182,17 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  /// Persist completion status toggle to SQLite and update alarm schedule
   Future<void> _toggleTaskCompletion(TaskItem task) async {
     setState(() {
       task.isCompleted = !task.isCompleted;
     });
+
     await DatabaseHelper.instance.updateTask(task);
+
+    // Keep the existing alarm scheduling behavior.
     await AlarmService.instance.scheduleTaskAlarm(task);
   }
 
-  /// Delete a task by ID from SQLite and cancel its alarm after confirmation
   Future<void> _confirmDeleteTask(TaskItem task) async {
     final bool? confirm = await showDialog<bool>(
       context: context,
@@ -186,7 +207,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           title: const Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: AppTheme.urgentRed),
+              Icon(
+                Icons.warning_amber_rounded,
+                color: AppTheme.urgentRed,
+              ),
               SizedBox(width: 10),
               Text(
                 'Delete Task?',
@@ -198,8 +222,12 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           content: Text(
-            'Are you sure you want to delete "${task.title}"? This action cannot be undone.',
-            style: const TextStyle(color: AppTheme.textMuted, fontSize: 14),
+            'Are you sure you want to delete "${task.title}"? '
+                'This action cannot be undone.',
+            style: const TextStyle(
+              color: AppTheme.textMuted,
+              fontSize: 14,
+            ),
           ),
           actions: [
             TextButton(
@@ -237,7 +265,9 @@ class _HomeScreenState extends State<HomeScreen> {
       await _loadTasksFromDatabase();
 
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).clearSnackBars();
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Task "${task.title}" deleted.'),
@@ -251,7 +281,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Persist new task to SQLite and schedule alarm
   Future<void> _openAddTaskScreen() async {
     final newTask = await Navigator.push<TaskItem>(
       context,
@@ -266,15 +295,22 @@ class _HomeScreenState extends State<HomeScreen> {
       await _loadTasksFromDatabase();
 
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).clearSnackBars();
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.check_circle_rounded, color: Colors.white),
+              const Icon(
+                Icons.check_circle_rounded,
+                color: Colors.white,
+              ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text('Task "${newTask.title}" saved and alarm scheduled!'),
+                child: Text(
+                  'Task "${newTask.title}" saved and alarm scheduled!',
+                ),
               ),
             ],
           ),
@@ -288,7 +324,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Persist updated task to SQLite and update alarm schedule
   Future<void> _openEditTaskScreen(TaskItem task) async {
     final updatedTask = await Navigator.push<TaskItem>(
       context,
@@ -303,15 +338,22 @@ class _HomeScreenState extends State<HomeScreen> {
       await _loadTasksFromDatabase();
 
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).clearSnackBars();
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.task_alt_rounded, color: Colors.white),
+              const Icon(
+                Icons.task_alt_rounded,
+                color: Colors.white,
+              ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text('Task "${updatedTask.title}" updated and alarm rescheduled!'),
+                child: Text(
+                  'Task "${updatedTask.title}" updated and alarm rescheduled!',
+                ),
               ),
             ],
           ),
@@ -337,7 +379,10 @@ class _HomeScreenState extends State<HomeScreen> {
               tasks: _tasks,
               onRefreshTasks: _loadTasksFromDatabase,
             ),
-            _buildPlaceholderView('Productivity Insights', Icons.insights_rounded),
+            _buildPlaceholderView(
+              'Productivity Insights',
+              Icons.insights_rounded,
+            ),
             ProfileScreen(
               tasks: _tasks,
               onRefreshTasks: _loadTasksFromDatabase,
@@ -345,36 +390,19 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+
       floatingActionButton: _currentBottomNavIndex == 0
-          ? Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primaryPurple.withValues(alpha: 0.45),
-                    blurRadius: 16,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: FloatingActionButton.extended(
-                onPressed: () {
-                  HapticFeedback.lightImpact();
-                  _openAddTaskScreen();
-                },
-                icon: const Icon(Icons.add_rounded),
-                label: const Text(
-                  'New Task',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            )
+          ? PremiumAddButton(
+        onPressed: _openAddTaskScreen,
+        label: 'New Task',
+      )
           : null,
+
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentBottomNavIndex,
         onTap: (index) {
           HapticFeedback.selectionClick();
+
           setState(() {
             _currentBottomNavIndex = index;
           });
@@ -409,11 +437,16 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: AppTheme.accentCyan),
+            CircularProgressIndicator(
+              color: AppTheme.accentCyan,
+            ),
             SizedBox(height: 16),
             Text(
               'Loading persistent tasks & alarms...',
-              style: TextStyle(color: AppTheme.textMuted, fontSize: 14),
+              style: TextStyle(
+                color: AppTheme.textMuted,
+                fontSize: 14,
+              ),
             ),
           ],
         ),
@@ -424,7 +457,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: 16,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -443,7 +479,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderRadius: BorderRadius.circular(14),
                         boxShadow: [
                           BoxShadow(
-                            color: AppTheme.primaryPurple.withValues(alpha: 0.4),
+                            color: AppTheme.primaryPurple.withValues(
+                              alpha: 0.4,
+                            ),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -474,6 +512,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 IconButton(
                   onPressed: () {
                     HapticFeedback.selectionClick();
+
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('No new notifications'),
@@ -498,6 +537,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+
           const SizedBox(height: 20),
 
           // 2. Time-Appropriate Greeting Header
@@ -525,17 +565,32 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+
           const SizedBox(height: 20),
 
-          // 3. Dynamic Today Statistics Progress Card
+          // 3. Today Statistics + NEW Premium Animated Progress Ring
           AnimatedEntry(
             index: 2,
-            child: ProgressCard(
-              totalTasks: _totalTodayCount,
-              completedTasks: _completedTodayCount,
-              pendingTasks: _pendingTodayCount,
+            child: Column(
+              children: [
+                ProgressCard(
+                  totalTasks: _totalTodayCount,
+                  completedTasks: _completedTodayCount,
+                  pendingTasks: _pendingTodayCount,
+                ),
+                const SizedBox(height: 18),
+                Center(
+                  child: PremiumProgressRing(
+                    progress: _totalTodayCount == 0
+                        ? 0.0
+                        : _completedTodayCount / _totalTodayCount,
+                    size: 110,
+                  ),
+                ),
+              ],
             ),
           ),
+
           const SizedBox(height: 24),
 
           // 4. Filter & Sorting Controls
@@ -543,18 +598,22 @@ class _HomeScreenState extends State<HomeScreen> {
             index: 3,
             child: _buildFilterAndSortBar(),
           ),
+
           const SizedBox(height: 20),
 
           // 5. Tasks Section Header
           AnimatedEntry(
             index: 4,
             child: SectionHeader(
-              title: _hasActiveFilters ? 'Filtered Tasks' : 'All Scheduled Tasks',
+              title: _hasActiveFilters
+                  ? 'Filtered Tasks'
+                  : 'All Scheduled Tasks',
               badgeText: '${displayedList.length} Items',
               actionLabel: _hasActiveFilters ? 'Clear Filters' : null,
               onActionPressed: _hasActiveFilters ? _resetFilters : null,
             ),
           ),
+
           const SizedBox(height: 14),
 
           // 6. Task List or Custom Empty State
@@ -563,7 +622,8 @@ class _HomeScreenState extends State<HomeScreen> {
               index: 5,
               child: EmptyState(
                 title: 'No Tasks Found! 📝',
-                message: 'Your task database is empty. Tap below to create your first alarm task.',
+                message:
+                'Your task database is empty. Tap below to create your first alarm task.',
                 onAction: _openAddTaskScreen,
               ),
             )
@@ -572,7 +632,8 @@ class _HomeScreenState extends State<HomeScreen> {
               index: 5,
               child: EmptyState(
                 title: 'No Matching Tasks 🔍',
-                message: 'No tasks match your selected filter criteria. Try resetting filters.',
+                message:
+                'No tasks match your selected filter criteria. Try resetting filters.',
                 actionLabel: 'Reset Filters',
                 onAction: _resetFilters,
               ),
@@ -582,22 +643,28 @@ class _HomeScreenState extends State<HomeScreen> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: displayedList.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              separatorBuilder: (context, index) =>
+              const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final task = displayedList[index];
+
+
                 return AnimatedEntry(
                   index: index + 5,
-                  child: TaskCard(
-                    task: task,
-                    onToggleCompleted: () => _toggleTaskCompletion(task),
-                    onEditTask: () => _openEditTaskScreen(task),
-                    onDeleteTask: () => _confirmDeleteTask(task),
+                  child: AnimatedTaskCard(
+                    child: TaskCard(
+                      task: task,
+                      onToggleCompleted: () => _toggleTaskCompletion(task),
+                      onEditTask: () => _openEditTaskScreen(task),
+                      onDeleteTask: () => _confirmDeleteTask(task),
+                    ),
                   ),
                 );
+
               },
             ),
 
-          const SizedBox(height: 80), // FAB Bottom Spacing
+          const SizedBox(height: 80),
         ],
       ),
     );
@@ -616,7 +683,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Row 1: Status Filter Chips & Sort Popup Menu
+          // Row 1: Filter Chips & Sort Popup Menu
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -633,6 +700,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 initialValue: _sortOption,
                 onSelected: (option) {
                   HapticFeedback.selectionClick();
+
                   setState(() {
                     _sortOption = option;
                   });
@@ -643,7 +711,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   side: const BorderSide(color: Colors.white12),
                 ),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: AppTheme.darkBackground,
                     borderRadius: BorderRadius.circular(10),
@@ -651,7 +722,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.sort_rounded, size: 16, color: AppTheme.accentCyan),
+                      const Icon(
+                        Icons.sort_rounded,
+                        size: 16,
+                        color: AppTheme.accentCyan,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         _getSortLabel(_sortOption),
@@ -667,23 +742,33 @@ class _HomeScreenState extends State<HomeScreen> {
                 itemBuilder: (context) => [
                   const PopupMenuItem(
                     value: SortOption.dateTime,
-                    child: Text('Sort by Date & Time', style: TextStyle(color: Colors.white)),
+                    child: Text(
+                      'Sort by Date & Time',
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                   const PopupMenuItem(
                     value: SortOption.priority,
-                    child: Text('Sort by Priority', style: TextStyle(color: Colors.white)),
+                    child: Text(
+                      'Sort by Priority',
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                   const PopupMenuItem(
                     value: SortOption.recentlyCreated,
-                    child: Text('Sort by Recently Created', style: TextStyle(color: Colors.white)),
+                    child: Text(
+                      'Sort by Recently Created',
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                 ],
               ),
             ],
           ),
+
           const SizedBox(height: 12),
 
-          // Row 2: Status Filter Segmented Chips
+          // Row 2: Status Filter Chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -693,18 +778,29 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(width: 8),
                 _buildStatusFilterChip(StatusFilter.pending, 'Pending'),
                 const SizedBox(width: 8),
-                _buildStatusFilterChip(StatusFilter.completed, 'Completed'),
+                _buildStatusFilterChip(
+                  StatusFilter.completed,
+                  'Completed',
+                ),
                 const SizedBox(width: 8),
-                _buildStatusFilterChip(StatusFilter.overdue, 'Overdue ⚠️'),
+                _buildStatusFilterChip(
+                  StatusFilter.overdue,
+                  'Overdue ⚠️',
+                ),
               ],
             ),
           ),
+
           const SizedBox(height: 12),
 
-          // Row 3: Category Dropdown Selector
+          // Row 3: Category Dropdown
           Row(
             children: [
-              const Icon(Icons.category_rounded, size: 16, color: AppTheme.textMuted),
+              const Icon(
+                Icons.category_rounded,
+                size: 16,
+                color: AppTheme.textMuted,
+              ),
               const SizedBox(width: 8),
               const Text(
                 'Category:',
@@ -717,7 +813,10 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AppTheme.darkBackground,
                     borderRadius: BorderRadius.circular(12),
@@ -731,18 +830,25 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: DropdownButton<String>(
                       value: _categoryFilter,
                       dropdownColor: AppTheme.cardNavy,
-                      icon: const Icon(Icons.arrow_drop_down_rounded, color: AppTheme.accentCyan),
+                      icon: const Icon(
+                        Icons.arrow_drop_down_rounded,
+                        color: AppTheme.accentCyan,
+                      ),
                       isExpanded: true,
-                      style: const TextStyle(color: AppTheme.textWhite, fontSize: 13),
-                      items: _categories.map((cat) {
+                      style: const TextStyle(
+                        color: AppTheme.textWhite,
+                        fontSize: 13,
+                      ),
+                      items: _categories.map((category) {
                         return DropdownMenuItem<String>(
-                          value: cat,
-                          child: Text(cat),
+                          value: category,
+                          child: Text(category),
                         );
                       }).toList(),
                       onChanged: (value) {
                         if (value != null) {
                           HapticFeedback.selectionClick();
+
                           setState(() {
                             _categoryFilter = value;
                           });
@@ -759,7 +865,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildStatusFilterChip(StatusFilter filter, String label) {
+  Widget _buildStatusFilterChip(
+      StatusFilter filter,
+      String label,
+      ) {
     final isSelected = _statusFilter == filter;
     final isOverdue = filter == StatusFilter.overdue;
 
@@ -769,23 +878,28 @@ class _HomeScreenState extends State<HomeScreen> {
       onSelected: (selected) {
         if (selected) {
           HapticFeedback.selectionClick();
+
           setState(() {
             _statusFilter = filter;
           });
         }
       },
-      selectedColor: isOverdue ? AppTheme.urgentRed : AppTheme.primaryPurple,
+      selectedColor:
+      isOverdue ? AppTheme.urgentRed : AppTheme.primaryPurple,
       backgroundColor: AppTheme.darkBackground,
       labelStyle: TextStyle(
         fontSize: 12,
         color: isSelected ? Colors.white : AppTheme.textMuted,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        fontWeight:
+        isSelected ? FontWeight.bold : FontWeight.normal,
       ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
           color: isSelected
-              ? (isOverdue ? AppTheme.urgentRed : AppTheme.accentCyan)
+              ? (isOverdue
+              ? AppTheme.urgentRed
+              : AppTheme.accentCyan)
               : Colors.white10,
         ),
       ),
@@ -796,8 +910,10 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (option) {
       case SortOption.priority:
         return 'Priority';
+
       case SortOption.recentlyCreated:
         return 'Recent';
+
       case SortOption.dateTime:
         return 'Date & Time';
     }

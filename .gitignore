@@ -60,3 +60,9 @@ app.*.map.json
 /gemma-4-4b/
 /android/.downloadIntermediates/
 /android/system-images/
+
+.gradle-user-home/
+.gradle/
+build/
+android/.gradle/
+android/app/build/

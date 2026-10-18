@@ -11,6 +11,8 @@ import '../widgets/progress_card.dart';
 import '../widgets/section_header.dart';
 import '../widgets/task_card.dart';
 import '../widgets/premium_animations.dart';
+import '../widgets/premium_line_graph.dart';
+import '../widgets/premium_donut_chart.dart';
 import 'calendar_screen.dart';
 import 'profile_screen.dart';
 import 'task_form_screen.dart';
@@ -68,12 +70,14 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _loadTasksFromDatabase() async {
+  Future<void> _loadTasksFromDatabase({bool showLoading = true}) async {
     if (!mounted) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    if (showLoading) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
       await DatabaseHelper.instance.seedInitialTasksIfEmpty();
@@ -81,15 +85,19 @@ class _HomeScreenState extends State<HomeScreen> {
       final loadedTasks =
       await DatabaseHelper.instance.getAllTasks();
 
-      // Preserve the existing alarm reconciliation.
-      await AlarmService.instance.reconcileAllAlarms(loadedTasks);
-
       if (!mounted) return;
 
       setState(() {
         _tasks = loadedTasks;
         _isLoading = false;
       });
+
+      // Preserve alarm reconciliation safely in background
+      try {
+        await AlarmService.instance.reconcileAllAlarms(loadedTasks);
+      } catch (e) {
+        debugPrint('Alarm reconciliation error: $e');
+      }
     } catch (e) {
       if (!mounted) return;
 
@@ -185,12 +193,18 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _toggleTaskCompletion(TaskItem task) async {
     setState(() {
       task.isCompleted = !task.isCompleted;
+      task.completedAt = task.isCompleted ? DateTime.now() : null;
     });
 
     await DatabaseHelper.instance.updateTask(task);
 
-    // Keep the existing alarm scheduling behavior.
-    await AlarmService.instance.scheduleTaskAlarm(task);
+    try {
+      await AlarmService.instance.scheduleTaskAlarm(task);
+    } catch (e) {
+      debugPrint('Alarm scheduling error: $e');
+    }
+
+    await _loadTasksFromDatabase(showLoading: false);
   }
 
   Future<void> _confirmDeleteTask(TaskItem task) async {
@@ -261,8 +275,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (confirm == true) {
       await DatabaseHelper.instance.deleteTask(task.id);
-      await AlarmService.instance.cancelTaskAlarm(task.id);
-      await _loadTasksFromDatabase();
+      try {
+        await AlarmService.instance.cancelTaskAlarm(task.id);
+      } catch (e) {
+        debugPrint('Alarm cancel error: $e');
+      }
+      await _loadTasksFromDatabase(showLoading: false);
 
       if (!mounted) return;
 
@@ -291,8 +309,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (newTask != null) {
       await DatabaseHelper.instance.insertTask(newTask);
-      await AlarmService.instance.scheduleTaskAlarm(newTask);
-      await _loadTasksFromDatabase();
+      try {
+        await AlarmService.instance.scheduleTaskAlarm(newTask);
+      } catch (e) {
+        debugPrint('Alarm scheduling error: $e');
+      }
+      await _loadTasksFromDatabase(showLoading: false);
 
       if (!mounted) return;
 
@@ -334,8 +356,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (updatedTask != null) {
       await DatabaseHelper.instance.updateTask(updatedTask);
-      await AlarmService.instance.scheduleTaskAlarm(updatedTask);
-      await _loadTasksFromDatabase();
+      try {
+        await AlarmService.instance.scheduleTaskAlarm(updatedTask);
+      } catch (e) {
+        debugPrint('Alarm scheduling error: $e');
+      }
+      await _loadTasksFromDatabase(showLoading: false);
 
       if (!mounted) return;
 
@@ -927,7 +953,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final totalCount = _tasks.length;
     final completedCount = _tasks.where((t) => t.isCompleted).length;
     final pendingCount = _tasks.where((t) => !t.isCompleted).length;
-    final overdueCount = _tasks.where((t) => t.isOverdue).length;
     final completionRate = totalCount == 0
         ? 0
         : ((completedCount / totalCount) * 100).round();
@@ -1156,86 +1181,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 20),
 
-          // 5. Task Status Breakdown
+          // 5. Premium Animated Donut Chart (Task Status Breakdown)
           AnimatedEntry(
             index: 4,
-            child: Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: AppTheme.cardNavy,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(
-                  color: AppTheme.primaryPurple.withValues(alpha: 0.25),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Task Status Breakdown',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textWhite,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: SizedBox(
-                      height: 12,
-                      child: Row(
-                        children: [
-                          if (completedCount > 0)
-                            Expanded(
-                              flex: completedCount,
-                              child: Container(color: AppTheme.successGreen),
-                            ),
-                          if (pendingCount > 0)
-                            Expanded(
-                              flex: pendingCount,
-                              child: Container(color: AppTheme.warningOrange),
-                            ),
-                          if (overdueCount > 0)
-                            Expanded(
-                              flex: overdueCount,
-                              child: Container(color: AppTheme.urgentRed),
-                            ),
-                          if (totalCount == 0)
-                            Expanded(
-                              child: Container(color: Colors.white10),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildBreakdownLegendItem(
-                        label: 'Completed',
-                        count: completedCount,
-                        percentage: totalCount == 0 ? 0 : ((completedCount / totalCount) * 100).round(),
-                        color: AppTheme.successGreen,
-                      ),
-                      _buildBreakdownLegendItem(
-                        label: 'Pending',
-                        count: pendingCount,
-                        percentage: totalCount == 0 ? 0 : ((pendingCount / totalCount) * 100).round(),
-                        color: AppTheme.warningOrange,
-                      ),
-                      _buildBreakdownLegendItem(
-                        label: 'Overdue',
-                        count: overdueCount,
-                        percentage: totalCount == 0 ? 0 : ((overdueCount / totalCount) * 100).round(),
-                        color: AppTheme.urgentRed,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+            child: PremiumDonutChartCard(tasks: _tasks),
           ),
           const SizedBox(height: 20),
 
@@ -1411,194 +1360,33 @@ class _HomeScreenState extends State<HomeScreen> {
     final monday = DateTime(now.year, now.month, now.day)
         .subtract(Duration(days: currentWeekday - 1));
 
-    final weekdaysLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final dailyCompleted = List<int>.filled(7, 0);
 
     for (int i = 0; i < 7; i++) {
       final dayDate = monday.add(Duration(days: i));
-      final dayTasks = _tasks.where((t) {
+      final count = _tasks.where((t) {
+        if (!t.isCompleted) return false;
+        if (t.completedAt != null) {
+          return t.completedAt!.year == dayDate.year &&
+              t.completedAt!.month == dayDate.month &&
+              t.completedAt!.day == dayDate.day;
+        }
         return t.scheduledDateTime.year == dayDate.year &&
             t.scheduledDateTime.month == dayDate.month &&
             t.scheduledDateTime.day == dayDate.day;
-      }).toList();
+      }).length;
 
-      dailyCompleted[i] = dayTasks.where((t) => t.isCompleted).length;
+      dailyCompleted[i] = count;
     }
 
-    final weeklyCompletedTotal = dailyCompleted.fold(0, (a, b) => a + b);
+    final sunday = monday.add(const Duration(days: 6));
+    final weekRangeText =
+        '${monday.day}/${monday.month} - ${sunday.day}/${sunday.month}';
 
-    int maxInDay = 5;
-    for (int val in dailyCompleted) {
-      if (val > maxInDay) maxInDay = val;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppTheme.cardNavy,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: AppTheme.primaryPurple.withValues(alpha: 0.25),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Weekly Productivity',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textWhite,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'This Week: $weeklyCompletedTotal completed tasks',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.accentCyan,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.darkBackground,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white10),
-                ),
-                child: Text(
-                  '${monday.day}/${monday.month} - ${monday.add(const Duration(days: 6)).day}/${monday.add(const Duration(days: 6)).month}',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: 130,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: List.generate(7, (index) {
-                final count = dailyCompleted[index];
-                final isToday = (index + 1) == currentWeekday;
-                final double fillRatio = (count / maxInDay).clamp(0.0, 1.0);
-
-                return Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(
-                      '$count',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: count > 0
-                            ? (isToday ? AppTheme.accentCyan : Colors.white)
-                            : AppTheme.textMuted.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      width: 22,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: AppTheme.darkBackground,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      alignment: Alignment.bottomCenter,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 500),
-                        curve: Curves.easeOutCubic,
-                        width: 22,
-                        height: 80 * fillRatio,
-                        decoration: BoxDecoration(
-                          gradient: isToday
-                              ? AppTheme.primaryGradient
-                              : (count > 0
-                                  ? const LinearGradient(
-                                      colors: [
-                                        AppTheme.accentCyan,
-                                        AppTheme.primaryPurple,
-                                      ],
-                                      begin: Alignment.bottomCenter,
-                                      end: Alignment.topCenter,
-                                    )
-                                  : null),
-                          color: count == 0 ? Colors.white10 : null,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      weekdaysLabels[index],
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                        color: isToday ? AppTheme.accentCyan : AppTheme.textMuted,
-                      ),
-                    ),
-                  ],
-                );
-              }),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBreakdownLegendItem({
-    required String label,
-    required int count,
-    required int percentage,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppTheme.textMuted,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '$count ($percentage%)',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-      ],
+    return PremiumLineGraph(
+      dailyCompleted: dailyCompleted,
+      weekRangeText: weekRangeText,
+      currentWeekday: currentWeekday,
     );
   }
 }

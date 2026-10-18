@@ -10,6 +10,7 @@ class TaskItem {
   final String alarmSoundType; // 'default', 'ringtone', 'custom_song'
   final String alarmSoundName; // Display name
   final String alarmSoundUri;  // URI or persistent path
+  DateTime? completedAt;
 
   TaskItem({
     required this.id,
@@ -23,6 +24,7 @@ class TaskItem {
     this.alarmSoundType = 'default',
     this.alarmSoundName = 'Default Alarm Sound',
     this.alarmSoundUri = 'default_alarm',
+    this.completedAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
   /// Convert TaskItem instance into a Map for SQLite persistence
@@ -39,6 +41,7 @@ class TaskItem {
       'alarmSoundType': alarmSoundType,
       'alarmSoundName': alarmSoundName,
       'alarmSoundUri': alarmSoundUri,
+      'completedAt': completedAt?.toIso8601String(),
     };
   }
 
@@ -58,6 +61,9 @@ class TaskItem {
       alarmSoundType: (map['alarmSoundType'] as String?) ?? 'default',
       alarmSoundName: (map['alarmSoundName'] as String?) ?? 'Default Alarm Sound',
       alarmSoundUri: (map['alarmSoundUri'] as String?) ?? 'default_alarm',
+      completedAt: map['completedAt'] != null
+          ? DateTime.parse(map['completedAt'] as String)
+          : null,
     );
   }
 
@@ -141,6 +147,7 @@ class TaskItem {
     String? alarmSoundType,
     String? alarmSoundName,
     String? alarmSoundUri,
+    DateTime? completedAt,
   }) {
     return TaskItem(
       id: id ?? this.id,
@@ -154,6 +161,7 @@ class TaskItem {
       alarmSoundType: alarmSoundType ?? this.alarmSoundType,
       alarmSoundName: alarmSoundName ?? this.alarmSoundName,
       alarmSoundUri: alarmSoundUri ?? this.alarmSoundUri,
+      completedAt: completedAt ?? this.completedAt,
     );
   }
 }

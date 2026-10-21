@@ -1,4 +1,5 @@
 import 'package:path/path.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/task_item.dart';
 
@@ -97,61 +98,67 @@ class DatabaseHelper {
 
   /// Seed initial sample tasks ONLY on first launch if the database is empty
   Future<void> seedInitialTasksIfEmpty() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeeded = prefs.getBool('has_seeded_initial_tasks') ?? false;
+    if (hasSeeded) return;
+
     final existingTasks = await getAllTasks();
-    if (existingTasks.isNotEmpty) return;
+    if (existingTasks.isEmpty) {
+      final now = DateTime.now();
+      final initialSampleTasks = [
+        TaskItem(
+          id: '1',
+          title: 'Review Project Architecture & Specs',
+          description: 'Read system specifications and component diagrams.',
+          scheduledDateTime: DateTime(now.year, now.month, now.day, 10, 0),
+          category: 'Work',
+          priority: 'High',
+          isCompleted: false,
+        ),
+        TaskItem(
+          id: '2',
+          title: 'Complete Weekly Learning Module',
+          description: 'Study Dart async patterns and state management.',
+          scheduledDateTime: DateTime(now.year, now.month, now.day, 14, 30),
+          category: 'Study',
+          priority: 'High',
+          isCompleted: true,
+        ),
+        TaskItem(
+          id: '3',
+          title: 'Pay Utility Invoices & Electricity Bill',
+          description: 'Settle monthly electric and internet bills.',
+          scheduledDateTime: now.subtract(const Duration(hours: 3)),
+          category: 'Bills',
+          priority: 'High',
+          isCompleted: false,
+        ),
+        TaskItem(
+          id: '4',
+          title: 'Evening Fitness & Gym Workout',
+          description: '30 mins cardio and core exercises.',
+          scheduledDateTime: DateTime(now.year, now.month, now.day, 18, 30),
+          category: 'Fitness',
+          priority: 'Low',
+          isCompleted: false,
+        ),
+        TaskItem(
+          id: '5',
+          title: 'Client Presentation & Demo Slides',
+          description: 'Prepare prototype demo for stakeholders.',
+          scheduledDateTime: DateTime(now.year, now.month, now.day + 1, 10, 0),
+          category: 'Work',
+          priority: 'Medium',
+          isCompleted: false,
+        ),
+      ];
 
-    final now = DateTime.now();
-    final initialSampleTasks = [
-      TaskItem(
-        id: '1',
-        title: 'Review Project Architecture & Specs',
-        description: 'Read system specifications and component diagrams.',
-        scheduledDateTime: DateTime(now.year, now.month, now.day, 10, 0),
-        category: 'Work',
-        priority: 'High',
-        isCompleted: false,
-      ),
-      TaskItem(
-        id: '2',
-        title: 'Complete Weekly Learning Module',
-        description: 'Study Dart async patterns and state management.',
-        scheduledDateTime: DateTime(now.year, now.month, now.day, 14, 30),
-        category: 'Study',
-        priority: 'High',
-        isCompleted: true,
-      ),
-      TaskItem(
-        id: '3',
-        title: 'Pay Utility Invoices & Electricity Bill',
-        description: 'Settle monthly electric and internet bills.',
-        scheduledDateTime: now.subtract(const Duration(hours: 3)),
-        category: 'Bills',
-        priority: 'High',
-        isCompleted: false,
-      ),
-      TaskItem(
-        id: '4',
-        title: 'Evening Fitness & Gym Workout',
-        description: '30 mins cardio and core exercises.',
-        scheduledDateTime: DateTime(now.year, now.month, now.day, 18, 30),
-        category: 'Fitness',
-        priority: 'Low',
-        isCompleted: false,
-      ),
-      TaskItem(
-        id: '5',
-        title: 'Client Presentation & Demo Slides',
-        description: 'Prepare prototype demo for stakeholders.',
-        scheduledDateTime: DateTime(now.year, now.month, now.day + 1, 10, 0),
-        category: 'Work',
-        priority: 'Medium',
-        isCompleted: false,
-      ),
-    ];
-
-    for (final task in initialSampleTasks) {
-      await insertTask(task);
+      for (final task in initialSampleTasks) {
+        await insertTask(task);
+      }
     }
+
+    await prefs.setBool('has_seeded_initial_tasks', true);
   }
 
   /// Close database connection

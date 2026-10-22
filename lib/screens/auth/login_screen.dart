@@ -109,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const Center(
                   child: Text(
-                    'Welcome to TaskAlert',
+                    'Welcome to AlertBox',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,

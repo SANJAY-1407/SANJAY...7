@@ -168,9 +168,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         content: const SingleChildScrollView(
           child: Text(
-            'TaskAlert respects your privacy.\n\n'
+            'AlertBox respects your privacy.\n\n'
             '• Local Data Ownership: All your tasks, custom audio files, and alarm settings are stored locally on your device.\n'
-            '• Offline Capabilities: TaskAlert operates completely offline.\n'
+            '• Offline Capabilities: AlertBox operates completely offline.\n'
             '• Zero Data Harvesting: Your personal data and audio recordings are never collected or sold to third parties.',
             style: TextStyle(color: AppTheme.textMuted, fontSize: 13, height: 1.5),
           ),
@@ -468,8 +468,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     // About App
                     ListTile(
                       leading: const Icon(Icons.info_outline_rounded, color: AppTheme.accentCyan),
-                      title: const Text('About TaskAlert', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('TaskAlert v1.0.0 (Day 10 Build)', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                      title: const Text('About AlertBox', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      subtitle: const Text('AlertBox v1.0.0 (Day 10 Build)', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
                     ),
                   ],
                 ),

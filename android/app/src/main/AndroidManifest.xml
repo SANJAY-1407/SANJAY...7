@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Permissions required for TaskAlert notifications, audio playback, full screen alarms, and exact alarms -->
+    <!-- Permissions required for AlertBox notifications, audio playback, full screen alarms, and exact alarms -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
@@ -11,7 +11,7 @@
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
 
     <application
-        android:label="TaskAlert"
+        android:label="AlertBox"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

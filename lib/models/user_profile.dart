@@ -20,7 +20,7 @@ class UserProfile {
   /// Default Guest profile configuration
   factory UserProfile.guest() {
     return const UserProfile(
-      displayName: 'TaskAlert User',
+      displayName: 'AlertBox User',
       email: 'guest@taskalert.app',
       avatarInitials: 'TU',
       avatarPath: null,
@@ -63,7 +63,7 @@ class UserProfile {
 
   factory UserProfile.fromMap(Map<String, dynamic> map) {
     return UserProfile(
-      displayName: map['displayName'] as String? ?? 'TaskAlert User',
+      displayName: map['displayName'] as String? ?? 'AlertBox User',
       email: map['email'] as String? ?? 'guest@taskalert.app',
       avatarInitials: map['avatarInitials'] as String? ?? 'TU',
       avatarPath: map['avatarPath'] as String?,

@@ -1,5 +1,5 @@
 name: task_alert
-description: "TaskAlert - Premium Task Reminder and Alarm Application"
+description: "AlertBox - Premium Task Reminder and Alarm Application"
 publish_to: 'none'
 
 version: 1.0.0+1

@@ -93,7 +93,7 @@ class AlarmService {
       // Explicitly create high-priority alarm notification channel
       const androidChannel = AndroidNotificationChannel(
         'task_alert_alarms_channel_v3',
-        'TaskAlert High-Priority Alarms',
+        'AlertBox High-Priority Alarms',
         description:
             'High-priority sound and full-screen alarm reminders for scheduled tasks',
         importance: Importance.max,
@@ -242,7 +242,7 @@ class AlarmService {
 
     const androidDetails = AndroidNotificationDetails(
       _alarmChannelId,
-      'TaskAlert High-Priority Alarms',
+      'AlertBox High-Priority Alarms',
       channelDescription:
           'High-priority sound and full-screen alarm reminders for scheduled tasks',
       importance: Importance.max,

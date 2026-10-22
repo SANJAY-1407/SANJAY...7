@@ -112,7 +112,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 const Center(
                   child: Text(
-                    'Join TaskAlert Today',
+                    'Join AlertBox Today',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,

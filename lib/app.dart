@@ -10,7 +10,7 @@ class TaskAlertApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'TaskAlert',
+      title: 'AlertBox',
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,

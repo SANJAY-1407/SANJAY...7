@@ -542,7 +542,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       shaderCallback: (bounds) =>
                           AppTheme.primaryGradient.createShader(bounds),
                       child: const Text(
-                        'TaskAlert',
+                        'AlertBox',
                         style: TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w800,

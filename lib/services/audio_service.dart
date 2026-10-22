@@ -80,7 +80,7 @@ class AudioService {
   }
 
   /// Play task alarm sound in looping mode until dismissed
-  Future<void> playAlarm({
+  Future<bool> playAlarm({
     required String soundType,
     required String soundUri,
   }) async {
@@ -102,7 +102,7 @@ class AudioService {
           await _player.play(DeviceFileSource(soundUri));
           _isPlaying = true;
           _currentUri = soundUri;
-          return;
+          return true;
         } catch (e) {
           debugPrint(
               '[AudioService] Failed to play custom song "$soundUri", falling back to bundled default alarm: $e');
@@ -114,15 +114,18 @@ class AudioService {
         await _player.play(AssetSource(_defaultAlarmAsset));
         _isPlaying = true;
         _currentUri = 'default';
+        return true;
       } catch (e) {
         debugPrint('[AudioService] Bundled default alarm playback failed: $e');
         _isPlaying = false;
         _currentUri = null;
+        return false;
       }
     } catch (e) {
       debugPrint('General error in playAlarm: $e');
       _isPlaying = false;
       _currentUri = null;
+      return false;
     }
   }
 

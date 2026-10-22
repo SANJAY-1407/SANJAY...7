@@ -302,8 +302,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (newTask != null) {
       await DatabaseHelper.instance.insertTask(newTask);
+      bool alarmScheduled = false;
       try {
-        await AlarmService.instance.scheduleTaskAlarm(newTask);
+        alarmScheduled = await AlarmService.instance.scheduleTaskAlarm(newTask);
       } catch (e) {
         debugPrint('Alarm scheduling error: $e');
       }
@@ -317,19 +318,33 @@ class _HomeScreenState extends State<HomeScreen> {
         SnackBar(
           content: Row(
             children: [
-              const Icon(
-                Icons.check_circle_rounded,
+              Icon(
+                alarmScheduled
+                    ? Icons.check_circle_rounded
+                    : Icons.warning_amber_rounded,
                 color: Colors.white,
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Task "${newTask.title}" saved and alarm scheduled!',
+                  alarmScheduled
+                      ? 'Task "${newTask.title}" saved and alarm scheduled!'
+                      : 'Task saved, but the alarm could not be scheduled. Check notification permissions.',
                 ),
               ),
             ],
           ),
-          backgroundColor: AppTheme.primaryPurple,
+          backgroundColor:
+              alarmScheduled ? AppTheme.primaryPurple : AppTheme.warningOrange,
+          action: alarmScheduled
+              ? null
+              : SnackBarAction(
+                  label: 'Enable',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    AlarmService.instance.requestAlarmPermissions();
+                  },
+                ),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -349,8 +364,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (updatedTask != null) {
       await DatabaseHelper.instance.updateTask(updatedTask);
+      bool alarmScheduled = false;
       try {
-        await AlarmService.instance.scheduleTaskAlarm(updatedTask);
+        alarmScheduled =
+            await AlarmService.instance.scheduleTaskAlarm(updatedTask);
       } catch (e) {
         debugPrint('Alarm scheduling error: $e');
       }
@@ -364,19 +381,33 @@ class _HomeScreenState extends State<HomeScreen> {
         SnackBar(
           content: Row(
             children: [
-              const Icon(
-                Icons.task_alt_rounded,
+              Icon(
+                alarmScheduled
+                    ? Icons.task_alt_rounded
+                    : Icons.warning_amber_rounded,
                 color: Colors.white,
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Task "${updatedTask.title}" updated and alarm rescheduled!',
+                  alarmScheduled
+                      ? 'Task "${updatedTask.title}" updated and alarm rescheduled!'
+                      : 'Task updated, but the alarm could not be scheduled. Check notification permissions.',
                 ),
               ),
             ],
           ),
-          backgroundColor: AppTheme.primaryPurple,
+          backgroundColor:
+              alarmScheduled ? AppTheme.primaryPurple : AppTheme.warningOrange,
+          action: alarmScheduled
+              ? null
+              : SnackBarAction(
+                  label: 'Enable',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    AlarmService.instance.requestAlarmPermissions();
+                  },
+                ),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),

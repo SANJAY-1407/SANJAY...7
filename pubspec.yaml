@@ -28,6 +28,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/audio/default_alarm.wav
 
 flutter_launcher_icons:
   image_path: "assets/alertbox_icon.png"

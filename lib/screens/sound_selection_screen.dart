@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import '../core/theme/app_theme.dart';
 import '../models/alarm_sound_config.dart';
 import '../services/audio_service.dart';
+import '../services/alarm_sound_preferences.dart';
 
 class SoundSelectionScreen extends StatefulWidget {
   final AlarmSoundConfig currentConfig;
@@ -46,6 +47,13 @@ class _SoundSelectionScreenState extends State<SoundSelectionScreen> {
   void initState() {
     super.initState();
     _selectedConfig = widget.currentConfig;
+    _loadSavedDefaultIfNeeded();
+  }
+
+  Future<void> _loadSavedDefaultIfNeeded() async {
+    if (widget.currentConfig.soundUri != 'default_alarm') return;
+    final saved = await AlarmSoundPreferences.load();
+    if (mounted) setState(() => _selectedConfig = saved);
   }
 
   @override
@@ -76,7 +84,8 @@ class _SoundSelectionScreenState extends State<SoundSelectionScreen> {
           await savedDir.create(recursive: true);
         }
 
-        final localPath = '${savedDir.path}/${DateTime.now().millisecondsSinceEpoch}_$fileName';
+        final localPath =
+            '${savedDir.path}/${DateTime.now().millisecondsSinceEpoch}_$fileName';
         await pickedFile.copy(localPath);
 
         setState(() {
@@ -113,7 +122,8 @@ class _SoundSelectionScreenState extends State<SoundSelectionScreen> {
   }
 
   Future<void> _togglePreview(AlarmSoundConfig config) async {
-    if (AudioService.instance.isPlaying && AudioService.instance.currentUri == config.soundUri) {
+    if (AudioService.instance.isPlaying &&
+        AudioService.instance.currentUri == config.soundUri) {
       await AudioService.instance.stopPreview();
     } else {
       await AudioService.instance.playPreview(
@@ -141,8 +151,10 @@ class _SoundSelectionScreenState extends State<SoundSelectionScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               AudioService.instance.stopPreview();
+              await AlarmSoundPreferences.save(_selectedConfig);
+              if (!context.mounted) return;
               Navigator.pop(context, _selectedConfig);
             },
             child: const Text(
@@ -262,14 +274,19 @@ class _SoundSelectionScreenState extends State<SoundSelectionScreen> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isSelected ? AppTheme.accentCyan : AppTheme.textMuted,
+                          color: isSelected
+                              ? AppTheme.accentCyan
+                              : AppTheme.textMuted,
                           width: 2,
                         ),
-                        color: isSelected ? AppTheme.accentCyan : Colors.transparent,
+                        color: isSelected
+                            ? AppTheme.accentCyan
+                            : Colors.transparent,
                       ),
                       child: isSelected
                           ? const Center(
-                              child: Icon(Icons.circle, size: 8, color: Colors.white),
+                              child: Icon(Icons.circle,
+                                  size: 8, color: Colors.white),
                             )
                           : null,
                     ),
@@ -285,7 +302,9 @@ class _SoundSelectionScreenState extends State<SoundSelectionScreen> {
                         isPlayingThis
                             ? Icons.stop_circle_rounded
                             : Icons.play_circle_fill_rounded,
-                        color: isPlayingThis ? AppTheme.urgentRed : AppTheme.accentCyan,
+                        color: isPlayingThis
+                            ? AppTheme.urgentRed
+                            : AppTheme.accentCyan,
                         size: 28,
                       ),
                       onPressed: () => _togglePreview(tone),
@@ -348,9 +367,10 @@ class _SoundSelectionScreenState extends State<SoundSelectionScreen> {
                                     : 'Select MP3, WAV, or M4A from storage',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: _selectedConfig.soundType == 'custom_song'
-                                      ? AppTheme.accentCyan
-                                      : AppTheme.textMuted,
+                                  color:
+                                      _selectedConfig.soundType == 'custom_song'
+                                          ? AppTheme.accentCyan
+                                          : AppTheme.textMuted,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -365,7 +385,8 @@ class _SoundSelectionScreenState extends State<SoundSelectionScreen> {
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: _isPickingFile ? null : _pickCustomAudioFile,
+                            onPressed:
+                                _isPickingFile ? null : _pickCustomAudioFile,
                             icon: _isPickingFile
                                 ? const SizedBox(
                                     width: 16,
@@ -375,11 +396,13 @@ class _SoundSelectionScreenState extends State<SoundSelectionScreen> {
                                       color: AppTheme.accentCyan,
                                     ),
                                   )
-                                : const Icon(Icons.music_note_rounded, size: 18),
+                                : const Icon(Icons.music_note_rounded,
+                                    size: 18),
                             label: const Text('Choose Audio File'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.textWhite,
-                              side: const BorderSide(color: AppTheme.accentCyan),
+                              side:
+                                  const BorderSide(color: AppTheme.accentCyan),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),

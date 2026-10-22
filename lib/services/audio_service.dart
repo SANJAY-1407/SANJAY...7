@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 
@@ -12,6 +13,8 @@ class AudioService {
 
   bool get isPlaying => _isPlaying;
   String? get currentUri => _currentUri;
+
+  static const String _defaultAlarmAsset = 'audio/default_alarm.wav';
 
   /// Configure Android audio context specifically for Alarm Usage Stream
   Future<void> _configureAudioContext() async {
@@ -42,23 +45,27 @@ class AudioService {
       await _configureAudioContext();
       await _player.setReleaseMode(ReleaseMode.stop);
 
+      var usedDefault = false;
       if (soundType == 'custom_song' && soundUri.isNotEmpty) {
         try {
+          if (!await File(soundUri).exists()) {
+            throw FileSystemException(
+                'Custom alarm file is not accessible', soundUri);
+          }
           await _player.play(DeviceFileSource(soundUri));
         } catch (e) {
-          debugPrint('Failed to preview custom sound $soundUri: $e');
-          await _player.play(
-            UrlSource('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'),
-          );
+          debugPrint(
+              '[AudioService] Failed to preview custom sound "$soundUri": $e. Falling back to bundled default.');
+          await _player.play(AssetSource(_defaultAlarmAsset));
+          usedDefault = true;
         }
       } else {
-        await _player.play(
-          UrlSource('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'),
-        );
+        await _player.play(AssetSource(_defaultAlarmAsset));
+        usedDefault = true;
       }
 
       _isPlaying = true;
-      _currentUri = soundUri;
+      _currentUri = usedDefault ? 'default_alarm' : soundUri;
 
       _player.onPlayerComplete.listen((_) {
         _isPlaying = false;
@@ -88,34 +95,29 @@ class AudioService {
 
       if (soundType == 'custom_song' && soundUri.isNotEmpty) {
         try {
+          if (!await File(soundUri).exists()) {
+            throw FileSystemException(
+                'Custom alarm file is not accessible', soundUri);
+          }
           await _player.play(DeviceFileSource(soundUri));
           _isPlaying = true;
           _currentUri = soundUri;
           return;
         } catch (e) {
-          debugPrint('Failed to play custom song "$soundUri", falling back to default alarm: $e');
+          debugPrint(
+              '[AudioService] Failed to play custom song "$soundUri", falling back to bundled default alarm: $e');
         }
       }
 
-      // Default or fallback alarm sound sources
+      // Default or fallback alarm sound is bundled so alarms work offline.
       try {
-        await _player.play(
-          UrlSource('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'),
-        );
+        await _player.play(AssetSource(_defaultAlarmAsset));
         _isPlaying = true;
         _currentUri = 'default';
       } catch (e) {
-        debugPrint('Primary online alarm sound failed: $e. Attempting secondary fallback...');
-        try {
-          await _player.play(
-            UrlSource('https://actions.google.com/sounds/v1/alarms/beep_short.ogg'),
-          );
-          _isPlaying = true;
-          _currentUri = 'default';
-        } catch (err) {
-          debugPrint('Secondary fallback alarm sound error: $err');
-          _isPlaying = false;
-        }
+        debugPrint('[AudioService] Bundled default alarm playback failed: $e');
+        _isPlaying = false;
+        _currentUri = null;
       }
     } catch (e) {
       debugPrint('General error in playAlarm: $e');

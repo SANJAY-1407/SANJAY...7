@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import '../models/alarm_sound_config.dart';
 import '../models/task_item.dart';
+import '../services/alarm_sound_preferences.dart';
 import 'sound_selection_screen.dart';
 
 class TaskFormScreen extends StatefulWidget {
@@ -76,7 +77,18 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       _alarmSoundType = 'default';
       _alarmSoundName = 'Default Alarm Sound';
       _alarmSoundUri = 'default_alarm';
+      _loadDefaultAlarmSound();
     }
+  }
+
+  Future<void> _loadDefaultAlarmSound() async {
+    final config = await AlarmSoundPreferences.load();
+    if (!mounted || isEditing) return;
+    setState(() {
+      _alarmSoundType = config.soundType;
+      _alarmSoundName = config.soundName;
+      _alarmSoundUri = config.soundUri;
+    });
   }
 
   @override
@@ -89,7 +101,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
-    final initialDate = _selectedDate.isBefore(todayStart) ? todayStart : _selectedDate;
+    final initialDate =
+        _selectedDate.isBefore(todayStart) ? todayStart : _selectedDate;
 
     final pickedDate = await showDatePicker(
       context: context,
@@ -165,13 +178,15 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
               Icon(Icons.warning_amber_rounded, color: Colors.white),
               SizedBox(width: 10),
               Expanded(
-                child: Text('Scheduled time cannot be in the past! Select a future date/time.'),
+                child: Text(
+                    'Scheduled time cannot be in the past! Select a future date/time.'),
               ),
             ],
           ),
           backgroundColor: AppTheme.urgentRed,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
       return;
@@ -182,7 +197,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     });
 
     final task = TaskItem(
-      id: widget.initialTask?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id: widget.initialTask?.id ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
       title: _titleController.text.trim(),
       description: _descriptionController.text.trim(),
       scheduledDateTime: scheduledDateTime,
@@ -361,7 +377,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                                 color: AppTheme.cardNavy,
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
-                                  color: AppTheme.primaryPurple.withValues(alpha: 0.3),
+                                  color: AppTheme.primaryPurple
+                                      .withValues(alpha: 0.3),
                                 ),
                               ),
                               child: Row(
@@ -417,7 +434,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                                 color: AppTheme.cardNavy,
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
-                                  color: AppTheme.primaryPurple.withValues(alpha: 0.3),
+                                  color: AppTheme.primaryPurple
+                                      .withValues(alpha: 0.3),
                                 ),
                               ),
                               child: Row(
@@ -478,14 +496,14 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                       backgroundColor: AppTheme.cardNavy,
                       labelStyle: TextStyle(
                         color: isSelected ? Colors.white : AppTheme.textMuted,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                         side: BorderSide(
-                          color: isSelected
-                              ? AppTheme.accentCyan
-                              : Colors.white12,
+                          color:
+                              isSelected ? AppTheme.accentCyan : Colors.white12,
                         ),
                       ),
                     );
@@ -536,7 +554,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
-                                  color: isSelected ? color : AppTheme.textMuted,
+                                  color:
+                                      isSelected ? color : AppTheme.textMuted,
                                 ),
                               ),
                             ),
@@ -582,7 +601,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   },
                   borderRadius: BorderRadius.circular(16),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
                       color: AppTheme.cardNavy,
                       borderRadius: BorderRadius.circular(16),

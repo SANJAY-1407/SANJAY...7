@@ -5,7 +5,6 @@ import '../models/task_item.dart';
 import '../services/alarm_service.dart';
 import '../services/database_helper.dart';
 import '../widgets/section_header.dart';
-import 'task_form_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
   final List<TaskItem> tasks;
@@ -122,36 +121,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
       debugPrint('Alarm scheduling error: $e');
     }
     widget.onRefreshTasks?.call();
-  }
-
-  Future<void> _openAddTaskForSelectedDate() async {
-    HapticFeedback.lightImpact();
-    final newTask = await Navigator.push<TaskItem>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => TaskFormScreen(initialDate: _selectedDate),
-      ),
-    );
-
-    if (newTask != null) {
-      await DatabaseHelper.instance.insertTask(newTask);
-      try {
-        await AlarmService.instance.scheduleTaskAlarm(newTask);
-      } catch (e) {
-        debugPrint('Alarm scheduling error: $e');
-      }
-      widget.onRefreshTasks?.call();
-      setState(() {});
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Task "${newTask.title}" scheduled!'),
-          backgroundColor: AppTheme.primaryPurple,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
   }
 
   String _formatSelectedDateTitle(DateTime dt) {
@@ -643,8 +612,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
         SectionHeader(
           title: 'Daily Schedule Timeline',
           badgeText: '${dayTasks.length} Items',
-          actionLabel: '+ Add Task',
-          onActionPressed: _openAddTaskForSelectedDate,
         ),
         const SizedBox(height: 12),
         if (dayTasks.isEmpty)
@@ -675,26 +642,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Tap below to schedule a new task for this day.',
+                  'Use New Task in the navigation bar to create a reminder.',
                   style: TextStyle(
                     fontSize: 12,
                     color: AppTheme.textMuted,
                   ),
                   textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 14),
-                ElevatedButton.icon(
-                  onPressed: _openAddTaskForSelectedDate,
-                  icon: const Icon(Icons.add_rounded, size: 16),
-                  label: const Text('Add Task for This Date'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryPurple,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                    textStyle: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.bold),
-                  ),
                 ),
               ],
             ),

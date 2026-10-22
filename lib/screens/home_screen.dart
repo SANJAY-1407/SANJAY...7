@@ -80,8 +80,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     try {
-      await DatabaseHelper.instance.seedInitialTasksIfEmpty();
-
       final loadedTasks = await DatabaseHelper.instance.getAllTasks();
 
       if (!mounted) return;
@@ -586,23 +584,10 @@ class _HomeScreenState extends State<HomeScreen> {
           // 3. Today Statistics + NEW Premium Animated Progress Ring
           AnimatedEntry(
             index: 2,
-            child: Column(
-              children: [
-                ProgressCard(
-                  totalTasks: _totalTodayCount,
-                  completedTasks: _completedTodayCount,
-                  pendingTasks: _pendingTodayCount,
-                ),
-                const SizedBox(height: 18),
-                Center(
-                  child: PremiumProgressRing(
-                    progress: _totalTodayCount == 0
-                        ? 0.0
-                        : _completedTodayCount / _totalTodayCount,
-                    size: 110,
-                  ),
-                ),
-              ],
+            child: ProgressCard(
+              totalTasks: _totalTodayCount,
+              completedTasks: _completedTodayCount,
+              pendingTasks: _pendingTodayCount,
             ),
           ),
 
@@ -637,8 +622,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: EmptyState(
                 title: 'No Tasks Found! 📝',
                 message:
-                    'Your task database is empty. Tap below to create your first alarm task.',
-                onAction: _openAddTaskScreen,
+                    'Your saved task list is empty. Use New Task in the navigation bar when you are ready to begin.',
               ),
             )
           else if (displayedList.isEmpty)
@@ -1050,243 +1034,18 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 20),
 
-          // 3. Animated Progress Ring Card (Feature 2)
-          AnimatedEntry(
-            index: 2,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: AppTheme.cardGradient,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: AppTheme.primaryPurple.withValues(alpha: 0.35),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.25),
-                    blurRadius: 14,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color:
-                                AppTheme.primaryPurple.withValues(alpha: 0.25),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color:
-                                  AppTheme.primaryPurple.withValues(alpha: 0.4),
-                            ),
-                          ),
-                          child: const Text(
-                            'OVERALL ACCUMULATION',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: AppTheme.accentCyan,
-                              letterSpacing: 1.0,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        const Text(
-                          'Task Completion Ratio',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textWhite,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '$completedCount of $totalCount total tasks completed',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  TweenAnimationBuilder<double>(
-                    tween: Tween<double>(
-                      begin: 0.0,
-                      end: totalCount == 0
-                          ? 0.0
-                          : (completedCount / totalCount).clamp(0.0, 1.0),
-                    ),
-                    duration: const Duration(milliseconds: 750),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, child) {
-                      final percent = (value * 100).round();
-                      return Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          SizedBox(
-                            width: 76,
-                            height: 76,
-                            child: CircularProgressIndicator(
-                              value: value,
-                              strokeWidth: 8,
-                              backgroundColor: AppTheme.darkBackground,
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                  AppTheme.accentCyan),
-                              strokeCap: StrokeCap.round,
-                            ),
-                          ),
-                          Text(
-                            '$percent%',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textWhite,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // 4. Weekly Productivity Bar Chart (Feature 3)
+          // 3. Weekly Productivity Bar Chart
           AnimatedEntry(
             index: 3,
             child: _buildWeeklyProductivityCard(),
           ),
           const SizedBox(height: 20),
 
-          // 5. Premium Animated Donut Chart (Task Status Breakdown)
+          // 4. Animated Task Status Breakdown
           AnimatedEntry(
             index: 4,
             child: PremiumDonutChartCard(tasks: _tasks),
           ),
-          const SizedBox(height: 20),
-
-          // 6. Empty State or Motivational Insight
-          if (totalCount == 0)
-            AnimatedEntry(
-              index: 5,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AppTheme.cardNavy,
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: Colors.white10),
-                ),
-                child: const Column(
-                  children: [
-                    Icon(Icons.insights_rounded,
-                        size: 48, color: AppTheme.accentCyan),
-                    SizedBox(height: 12),
-                    Text(
-                      'No Tasks Found',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textWhite,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      'Add tasks to generate full analytics and track your weekly progress.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else
-            AnimatedEntry(
-              index: 5,
-              child: Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppTheme.primaryPurple.withValues(alpha: 0.25),
-                      AppTheme.cardNavy,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: AppTheme.accentCyan.withValues(alpha: 0.35),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.accentCyan.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        completionRate == 100
-                            ? Icons.emoji_events_rounded
-                            : (completionRate >= 50
-                                ? Icons.auto_awesome_rounded
-                                : Icons.rocket_launch_rounded),
-                        size: 28,
-                        color: AppTheme.accentCyan,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            completionRate == 100
-                                ? 'Target Accomplished! 🎉'
-                                : (completionRate >= 50
-                                    ? 'Great Progress!'
-                                    : 'Build Momentum!'),
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textWhite,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            completionRate == 100
-                                ? 'You have completed all scheduled tasks. Excellent work!'
-                                : (completionRate >= 50
-                                    ? 'You\'re on a roll with $completionRate% completed. Keep it up!'
-                                    : 'Complete your pending tasks to boost your daily productivity score.'),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textMuted,
-                              height: 1.35,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
           const SizedBox(height: 80),
         ],
       ),

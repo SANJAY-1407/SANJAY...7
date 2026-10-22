@@ -1,32 +1,32 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Brand Color Tokens (OxygenOS-Inspired Charcoal & Vibrant Accents)
-  static const Color darkBackground = Color(0xFF0D0E15);
-  static const Color surfaceDark = Color(0xFF161826);
-  static const Color cardNavy = Color(0xFF1A1C2E);
-  static const Color surfaceLight = Color(0xFF23253B);
-  
-  static const Color primaryPurple = Color(0xFF7C3AED);
-  static const Color accentCyan = Color(0xFF06B6D4);
-  static const Color gradientPurple = Color(0xFFA855F7);
-  
-  static const Color textWhite = Color(0xFFF8FAFC);
-  static const Color textMuted = Color(0xFF94A3B8);
-  static const Color successGreen = Color(0xFF10B981);
-  static const Color warningOrange = Color(0xFFF59E0B);
-  static const Color urgentRed = Color(0xFFEF4444);
+  // Graphite surfaces and soft blue accents inspired by the reference UI.
+  static const Color darkBackground = Color(0xFF0B0D0F);
+  static const Color surfaceDark = Color(0xFF111416);
+  static const Color cardNavy = Color(0xFF1A1D20);
+  static const Color surfaceLight = Color(0xFF25292D);
+
+  static const Color primaryPurple = Color(0xFFB8D8F4);
+  static const Color accentCyan = Color(0xFFAED5F3);
+  static const Color gradientPurple = Color(0xFFD5E8F8);
+
+  static const Color textWhite = Color(0xFFF2F4F6);
+  static const Color textMuted = Color(0xFF8E969E);
+  static const Color successGreen = Color(0xFF8EE6A8);
+  static const Color warningOrange = Color(0xFFF2C47A);
+  static const Color urgentRed = Color(0xFFF18B91);
 
   // Category Accent Color Tokens
-  static const Color categoryPersonal = Color(0xFFA855F7); // Lavender
-  static const Color categoryWork = Color(0xFF3B82F6);     // Royal Blue
-  static const Color categoryStudy = Color(0xFF10B981);    // Emerald Green
-  static const Color categoryHealth = Color(0xFFEC4899);   // Rose Pink
-  static const Color categoryShopping = Color(0xFFF59E0B); // Amber
-  static const Color categoryMeetings = Color(0xFF06B6D4); // Cyan
-  static const Color categoryBills = Color(0xFFEF4444);    // Red
-  static const Color categoryFamily = Color(0xFF6366F1);   // Indigo
-  static const Color categoryCoding = Color(0xFF14B8A6);   // Teal
+  static const Color categoryPersonal = Color(0xFFBFDDF5);
+  static const Color categoryWork = Color(0xFF9DC7E8);
+  static const Color categoryStudy = Color(0xFF9CE0B3);
+  static const Color categoryHealth = Color(0xFFE7B4C0);
+  static const Color categoryShopping = Color(0xFFEAC98F);
+  static const Color categoryMeetings = Color(0xFFA9DCE0);
+  static const Color categoryBills = Color(0xFFE6A3A8);
+  static const Color categoryFamily = Color(0xFFC0BCE9);
+  static const Color categoryCoding = Color(0xFF9ED8CE);
 
   // Priority Color Tokens
   static const Color priorityHigh = urgentRed;
@@ -41,13 +41,13 @@ class AppTheme {
 
   // Premium Gradients
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [primaryPurple, accentCyan],
+    colors: [Color(0xFFD9ECFA), Color(0xFF9FC8E8)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient cardGradient = LinearGradient(
-    colors: [surfaceLight, cardNavy],
+    colors: [Color(0xFF2A2E32), cardNavy],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -73,7 +73,7 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: cardNavy,
-        elevation: 4,
+        elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radiusL),
         ),
@@ -88,14 +88,16 @@ class AppTheme {
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: cardNavy,
         shape: RoundedRectangleBorder(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(radiusXL)),
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(radiusXL)),
           side: BorderSide(color: primaryPurple.withValues(alpha: 0.3)),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: cardNavy,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusM),
           borderSide: BorderSide.none,
@@ -159,11 +161,33 @@ class AppTheme {
         ),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Color(0xFF13141F),
-        selectedItemColor: accentCyan,
+        backgroundColor: Color(0xFF111315),
+        selectedItemColor: primaryPurple,
         unselectedItemColor: textMuted,
         type: BottomNavigationBarType.fixed,
         elevation: 10,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: const Color(0xFF111315),
+        indicatorColor: primaryPurple,
+        height: 72,
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => TextStyle(
+            color: states.contains(WidgetState.selected)
+                ? darkBackground
+                : textMuted,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        iconTheme: WidgetStateProperty.resolveWith(
+          (states) => IconThemeData(
+            color: states.contains(WidgetState.selected)
+                ? darkBackground
+                : textMuted,
+            size: 21,
+          ),
+        ),
       ),
     );
   }

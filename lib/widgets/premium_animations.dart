@@ -1,6 +1,6 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../core/theme/app_theme.dart';
 
 /// 1. Fade + slide entrance animation.
 /// Wrap any existing widget with AnimatedEntrance.
@@ -71,9 +71,9 @@ class _AnimatedTaskCardState extends State<AnimatedTaskCard> {
           onTap: widget.onTap == null
               ? null
               : () {
-            HapticFeedback.selectionClick();
-            widget.onTap!();
-          },
+                  HapticFeedback.selectionClick();
+                  widget.onTap!();
+                },
           child: widget.child,
         ),
       ),
@@ -96,8 +96,8 @@ class PremiumTaskCheckbox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const purple = Color(0xFF9B6DFF);
-    const cyan = Color(0xFF55E6E0);
+    const purple = AppTheme.primaryPurple;
+    const cyan = AppTheme.accentCyan;
 
     return Semantics(
       label: value ? 'Task completed' : 'Task not completed',
@@ -125,12 +125,12 @@ class PremiumTaskCheckbox extends StatelessWidget {
               ),
               boxShadow: value
                   ? [
-                BoxShadow(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  blurRadius: 12,
-                  spreadRadius: 1,
-                ),
-              ]
+                      BoxShadow(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        blurRadius: 12,
+                        spreadRadius: 1,
+                      ),
+                    ]
                   : [],
             ),
             child: AnimatedSwitcher(
@@ -146,14 +146,14 @@ class PremiumTaskCheckbox extends StatelessWidget {
               },
               child: value
                   ? const Icon(
-                Icons.check_rounded,
-                key: ValueKey('checked'),
-                color: Colors.white,
-                size: 19,
-              )
+                      Icons.check_rounded,
+                      key: ValueKey('checked'),
+                      color: Colors.white,
+                      size: 19,
+                    )
                   : const SizedBox(
-                key: ValueKey('unchecked'),
-              ),
+                      key: ValueKey('unchecked'),
+                    ),
             ),
           ),
         ),
@@ -179,8 +179,7 @@ class PremiumProgressRing extends StatefulWidget {
   });
 
   @override
-  State<PremiumProgressRing> createState() =>
-      _PremiumProgressRingState();
+  State<PremiumProgressRing> createState() => _PremiumProgressRingState();
 }
 
 class _PremiumProgressRingState extends State<PremiumProgressRing>
@@ -188,8 +187,7 @@ class _PremiumProgressRingState extends State<PremiumProgressRing>
   late final AnimationController _controller;
   late Animation<double> _animation;
 
-  double get _target =>
-      widget.progress.clamp(0.0, 1.0).toDouble();
+  double get _target => widget.progress.clamp(0.0, 1.0).toDouble();
 
   @override
   void initState() {
@@ -309,8 +307,7 @@ class _ProgressRingPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius =
-        (size.shortestSide - strokeWidth) / 2;
+    final radius = (size.shortestSide - strokeWidth) / 2;
 
     final rect = Rect.fromCircle(
       center: center,
@@ -385,7 +382,7 @@ class _PremiumAddButtonState extends State<PremiumAddButton> {
         duration: const Duration(milliseconds: 130),
         child: FloatingActionButton.extended(
           heroTag: 'taskalert_premium_add_button',
-          backgroundColor: const Color(0xFF8B5CF6),
+          backgroundColor: AppTheme.primaryPurple,
           foregroundColor: Colors.white,
           elevation: _pressed ? 2 : 7,
           onPressed: () {

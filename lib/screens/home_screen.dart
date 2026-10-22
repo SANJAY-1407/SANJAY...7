@@ -82,8 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await DatabaseHelper.instance.seedInitialTasksIfEmpty();
 
-      final loadedTasks =
-      await DatabaseHelper.instance.getAllTasks();
+      final loadedTasks = await DatabaseHelper.instance.getAllTasks();
 
       if (!mounted) return;
 
@@ -147,28 +146,25 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_categoryFilter != 'All') {
-      list = list
-          .where((task) => task.category == _categoryFilter)
-          .toList();
+      list = list.where((task) => task.category == _categoryFilter).toList();
     }
 
     switch (_sortOption) {
       case SortOption.priority:
         list.sort(
-              (a, b) => b.priorityWeight.compareTo(a.priorityWeight),
+          (a, b) => b.priorityWeight.compareTo(a.priorityWeight),
         );
         break;
 
       case SortOption.recentlyCreated:
         list.sort(
-              (a, b) => b.createdAt.compareTo(a.createdAt),
+          (a, b) => b.createdAt.compareTo(a.createdAt),
         );
         break;
 
       case SortOption.dateTime:
         list.sort(
-              (a, b) =>
-              a.scheduledDateTime.compareTo(b.scheduledDateTime),
+          (a, b) => a.scheduledDateTime.compareTo(b.scheduledDateTime),
         );
         break;
     }
@@ -177,8 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   bool get _hasActiveFilters =>
-      _statusFilter != StatusFilter.all ||
-          _categoryFilter != 'All';
+      _statusFilter != StatusFilter.all || _categoryFilter != 'All';
 
   void _resetFilters() {
     HapticFeedback.lightImpact();
@@ -237,7 +232,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           content: Text(
             'Are you sure you want to delete "${task.title}"? '
-                'This action cannot be undone.',
+            'This action cannot be undone.',
             style: const TextStyle(
               color: AppTheme.textMuted,
               fontSize: 14,
@@ -398,7 +393,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: SafeArea(
         child: IndexedStack(
-          index: _currentBottomNavIndex,
+          index: _currentBottomNavIndex == 4
+              ? 3
+              : (_currentBottomNavIndex == 3 ? 2 : _currentBottomNavIndex),
           children: [
             _buildDashboardView(),
             CalendarScreen(
@@ -413,42 +410,37 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-
-      floatingActionButton: _currentBottomNavIndex == 0
-          ? PremiumAddButton(
-        onPressed: _openAddTaskScreen,
-        label: 'New Task',
-      )
-          : null,
-
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentBottomNavIndex,
-        onTap: (index) {
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentBottomNavIndex,
+        onDestinationSelected: (index) {
           HapticFeedback.selectionClick();
-
-          setState(() {
-            _currentBottomNavIndex = index;
-          });
+          if (index == 2) {
+            _openAddTaskScreen();
+            return;
+          }
+          setState(() => _currentBottomNavIndex = index);
         },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_filled),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_month_rounded),
-            activeIcon: Icon(Icons.calendar_month_rounded),
-            label: 'Calendar',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart_rounded),
-            label: 'Insights',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline_rounded),
-            activeIcon: Icon(Icons.person_rounded),
-            label: 'Profile',
-          ),
+        destinations: const [
+          NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_rounded),
+              label: 'Home'),
+          NavigationDestination(
+              icon: Icon(Icons.calendar_today_outlined),
+              selectedIcon: Icon(Icons.calendar_today_rounded),
+              label: 'Calendar'),
+          NavigationDestination(
+              icon: Icon(Icons.add_rounded),
+              selectedIcon: Icon(Icons.add_rounded),
+              label: 'New task'),
+          NavigationDestination(
+              icon: Icon(Icons.insights_outlined),
+              selectedIcon: Icon(Icons.insights_rounded),
+              label: 'Insights'),
+          NavigationDestination(
+              icon: Icon(Icons.person_outline_rounded),
+              selectedIcon: Icon(Icons.person_rounded),
+              label: 'Profile'),
         ],
       ),
     );
@@ -628,9 +620,8 @@ class _HomeScreenState extends State<HomeScreen> {
           AnimatedEntry(
             index: 4,
             child: SectionHeader(
-              title: _hasActiveFilters
-                  ? 'Filtered Tasks'
-                  : 'All Scheduled Tasks',
+              title:
+                  _hasActiveFilters ? 'Filtered Tasks' : 'All Scheduled Tasks',
               badgeText: '${displayedList.length} Items',
               actionLabel: _hasActiveFilters ? 'Clear Filters' : null,
               onActionPressed: _hasActiveFilters ? _resetFilters : null,
@@ -646,7 +637,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: EmptyState(
                 title: 'No Tasks Found! 📝',
                 message:
-                'Your task database is empty. Tap below to create your first alarm task.',
+                    'Your task database is empty. Tap below to create your first alarm task.',
                 onAction: _openAddTaskScreen,
               ),
             )
@@ -656,7 +647,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: EmptyState(
                 title: 'No Matching Tasks 🔍',
                 message:
-                'No tasks match your selected filter criteria. Try resetting filters.',
+                    'No tasks match your selected filter criteria. Try resetting filters.',
                 actionLabel: 'Reset Filters',
                 onAction: _resetFilters,
               ),
@@ -666,11 +657,9 @@ class _HomeScreenState extends State<HomeScreen> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: displayedList.length,
-              separatorBuilder: (context, index) =>
-              const SizedBox(height: 12),
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final task = displayedList[index];
-
 
                 return AnimatedEntry(
                   index: index + 5,
@@ -683,7 +672,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 );
-
               },
             ),
 
@@ -889,9 +877,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildStatusFilterChip(
-      StatusFilter filter,
-      String label,
-      ) {
+    StatusFilter filter,
+    String label,
+  ) {
     final isSelected = _statusFilter == filter;
     final isOverdue = filter == StatusFilter.overdue;
 
@@ -907,22 +895,18 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         }
       },
-      selectedColor:
-      isOverdue ? AppTheme.urgentRed : AppTheme.primaryPurple,
+      selectedColor: isOverdue ? AppTheme.urgentRed : AppTheme.primaryPurple,
       backgroundColor: AppTheme.darkBackground,
       labelStyle: TextStyle(
         fontSize: 12,
         color: isSelected ? Colors.white : AppTheme.textMuted,
-        fontWeight:
-        isSelected ? FontWeight.bold : FontWeight.normal,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
       ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
           color: isSelected
-              ? (isOverdue
-              ? AppTheme.urgentRed
-              : AppTheme.accentCyan)
+              ? (isOverdue ? AppTheme.urgentRed : AppTheme.accentCyan)
               : Colors.white10,
         ),
       ),
@@ -953,9 +937,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final totalCount = _tasks.length;
     final completedCount = _tasks.where((t) => t.isCompleted).length;
     final pendingCount = _tasks.where((t) => !t.isCompleted).length;
-    final completionRate = totalCount == 0
-        ? 0
-        : ((completedCount / totalCount) * 100).round();
+    final completionRate =
+        totalCount == 0 ? 0 : ((completedCount / totalCount) * 100).round();
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -1094,12 +1077,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryPurple.withValues(alpha: 0.25),
+                            color:
+                                AppTheme.primaryPurple.withValues(alpha: 0.25),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: AppTheme.primaryPurple.withValues(alpha: 0.4),
+                              color:
+                                  AppTheme.primaryPurple.withValues(alpha: 0.4),
                             ),
                           ),
                           child: const Text(
@@ -1136,7 +1122,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   TweenAnimationBuilder<double>(
                     tween: Tween<double>(
                       begin: 0.0,
-                      end: totalCount == 0 ? 0.0 : (completedCount / totalCount).clamp(0.0, 1.0),
+                      end: totalCount == 0
+                          ? 0.0
+                          : (completedCount / totalCount).clamp(0.0, 1.0),
                     ),
                     duration: const Duration(milliseconds: 750),
                     curve: Curves.easeOutCubic,
@@ -1152,7 +1140,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               value: value,
                               strokeWidth: 8,
                               backgroundColor: AppTheme.darkBackground,
-                              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.accentCyan),
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                  AppTheme.accentCyan),
                               strokeCap: StrokeCap.round,
                             ),
                           ),
@@ -1202,7 +1191,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: const Column(
                   children: [
-                    Icon(Icons.insights_rounded, size: 48, color: AppTheme.accentCyan),
+                    Icon(Icons.insights_rounded,
+                        size: 48, color: AppTheme.accentCyan),
                     SizedBox(height: 12),
                     Text(
                       'No Tasks Found',
@@ -1267,7 +1257,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           Text(
                             completionRate == 100
                                 ? 'Target Accomplished! 🎉'
-                                : (completionRate >= 50 ? 'Great Progress!' : 'Build Momentum!'),
+                                : (completionRate >= 50
+                                    ? 'Great Progress!'
+                                    : 'Build Momentum!'),
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,

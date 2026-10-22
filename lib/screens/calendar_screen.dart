@@ -25,7 +25,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
   late DateTime _focusedMonth;
   late DateTime _selectedDate;
 
-  final List<String> _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  final List<String> _weekdays = [
+    'Mon',
+    'Tue',
+    'Wed',
+    'Thu',
+    'Fri',
+    'Sat',
+    'Sun'
+  ];
   final List<String> _months = [
     'January',
     'February',
@@ -168,8 +176,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final daysInMonth = DateUtils.getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
-    final firstDayWeekday = DateTime(_focusedMonth.year, _focusedMonth.month, 1).weekday; // 1 = Mon, 7 = Sun
+    final daysInMonth =
+        DateUtils.getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
+    final firstDayWeekday = DateTime(_focusedMonth.year, _focusedMonth.month, 1)
+        .weekday; // 1 = Mon, 7 = Sun
     final leadingPadding = firstDayWeekday - 1; // Number of empty grid cells
     final totalGridCells = leadingPadding + daysInMonth;
     final now = DateTime.now();
@@ -192,6 +202,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        const Text(
+                          'Calendar',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textMuted,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
                         Text(
                           '${_months[_focusedMonth.month - 1]} ${_focusedMonth.year}',
                           style: const TextStyle(
@@ -223,12 +243,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       TextButton(
                         onPressed: _goToToday,
                         style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                          backgroundColor: AppTheme.primaryPurple.withValues(alpha: 0.2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          backgroundColor:
+                              AppTheme.primaryPurple.withValues(alpha: 0.2),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                             side: BorderSide(
-                              color: AppTheme.primaryPurple.withValues(alpha: 0.4),
+                              color:
+                                  AppTheme.primaryPurple.withValues(alpha: 0.4),
                             ),
                           ),
                           minimumSize: Size.zero,
@@ -247,7 +270,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                       // Prev Month Button
                       IconButton(
-                        icon: const Icon(Icons.chevron_left_rounded, color: AppTheme.textWhite, size: 22),
+                        icon: const Icon(Icons.chevron_left_rounded,
+                            color: AppTheme.textWhite, size: 22),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: _prevMonth,
@@ -257,7 +281,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                       // Next Month Button
                       IconButton(
-                        icon: const Icon(Icons.chevron_right_rounded, color: AppTheme.textWhite, size: 22),
+                        icon: const Icon(Icons.chevron_right_rounded,
+                            color: AppTheme.textWhite, size: 22),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: _nextMonth,
@@ -322,24 +347,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: totalGridCells,
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 7,
                           mainAxisSpacing: 8,
                           crossAxisSpacing: 8,
                         ),
                         itemBuilder: (context, index) {
                           if (index < leadingPadding) {
-                            return const SizedBox.shrink(); // Empty slot before first weekday
+                            return const SizedBox
+                                .shrink(); // Empty slot before first weekday
                           }
 
                           final dayNum = index - leadingPadding + 1;
-                          final cellDate = DateTime(_focusedMonth.year, _focusedMonth.month, dayNum);
-                          final isSelected = _isSameDay(cellDate, _selectedDate);
+                          final cellDate = DateTime(
+                              _focusedMonth.year, _focusedMonth.month, dayNum);
+                          final isSelected =
+                              _isSameDay(cellDate, _selectedDate);
                           final isTodayDate = _isSameDay(cellDate, now);
                           final cellTasks = _getTasksForDate(cellDate);
 
-                          final hasPending = cellTasks.any((t) => !t.isCompleted && !t.isOverdue);
-                          final hasCompleted = cellTasks.any((t) => t.isCompleted);
+                          final hasPending = cellTasks
+                              .any((t) => !t.isCompleted && !t.isOverdue);
+                          final hasCompleted =
+                              cellTasks.any((t) => t.isCompleted);
                           final hasOverdue = cellTasks.any((t) => t.isOverdue);
 
                           return GestureDetector(
@@ -353,11 +384,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               duration: const Duration(milliseconds: 180),
                               curve: Curves.easeOutCubic,
                               decoration: BoxDecoration(
-                                gradient: isSelected ? AppTheme.primaryGradient : null,
+                                gradient: isSelected
+                                    ? AppTheme.primaryGradient
+                                    : null,
                                 color: isSelected
                                     ? null
                                     : (isTodayDate
-                                        ? AppTheme.primaryPurple.withValues(alpha: 0.2)
+                                        ? AppTheme.primaryPurple
+                                            .withValues(alpha: 0.2)
                                         : AppTheme.darkBackground),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
@@ -389,13 +423,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   if (cellTasks.isNotEmpty) ...[
                                     const SizedBox(height: 3),
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         if (hasOverdue)
                                           Container(
                                             width: 5,
                                             height: 5,
-                                            margin: const EdgeInsets.symmetric(horizontal: 1),
+                                            margin: const EdgeInsets.symmetric(
+                                                horizontal: 1),
                                             decoration: const BoxDecoration(
                                               color: AppTheme.urgentRed,
                                               shape: BoxShape.circle,
@@ -405,9 +441,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                           Container(
                                             width: 5,
                                             height: 5,
-                                            margin: const EdgeInsets.symmetric(horizontal: 1),
+                                            margin: const EdgeInsets.symmetric(
+                                                horizontal: 1),
                                             decoration: BoxDecoration(
-                                              color: isSelected ? Colors.white : AppTheme.accentCyan,
+                                              color: isSelected
+                                                  ? Colors.white
+                                                  : AppTheme.accentCyan,
                                               shape: BoxShape.circle,
                                             ),
                                           ),
@@ -415,7 +454,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                           Container(
                                             width: 5,
                                             height: 5,
-                                            margin: const EdgeInsets.symmetric(horizontal: 1),
+                                            margin: const EdgeInsets.symmetric(
+                                                horizontal: 1),
                                             decoration: const BoxDecoration(
                                               color: AppTheme.successGreen,
                                               shape: BoxShape.circle,
@@ -529,7 +569,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryPurple.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(10),
@@ -556,7 +597,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
             children: [
               _buildMetricPill('Total', '$total', AppTheme.textWhite),
               Container(width: 1, height: 24, color: Colors.white10),
-              _buildMetricPill('Completed', '$completed', AppTheme.successGreen),
+              _buildMetricPill(
+                  'Completed', '$completed', AppTheme.successGreen),
               Container(width: 1, height: 24, color: Colors.white10),
               _buildMetricPill('Pending', '$pending', AppTheme.warningOrange),
             ],
@@ -648,8 +690,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryPurple,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    textStyle: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -717,7 +761,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           Expanded(
                             child: Container(
                               width: 2,
-                              color: AppTheme.primaryPurple.withValues(alpha: 0.3),
+                              color:
+                                  AppTheme.primaryPurple.withValues(alpha: 0.3),
                             ),
                           ),
                       ],
@@ -737,7 +782,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           border: Border.all(
                             color: task.isCompleted
                                 ? Colors.white10
-                                : AppTheme.primaryPurple.withValues(alpha: 0.25),
+                                : AppTheme.primaryPurple
+                                    .withValues(alpha: 0.25),
                           ),
                         ),
                         child: Column(
@@ -746,9 +792,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.accentCyan.withValues(alpha: 0.12),
+                                    color: AppTheme.accentCyan
+                                        .withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
@@ -762,9 +810,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 ),
                                 const SizedBox(width: 6),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: priorityColor.withValues(alpha: 0.15),
+                                    color:
+                                        priorityColor.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
@@ -834,7 +884,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   /// FEATURE 3: Monthly Productivity Heatmap
   Widget _buildMonthlyHeatmap() {
-    final daysInMonth = DateUtils.getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
+    final daysInMonth =
+        DateUtils.getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
     final monthName = _months[_focusedMonth.month - 1];
 
     return Container(
@@ -905,7 +956,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ),
             itemBuilder: (context, index) {
               final dayNum = index + 1;
-              final date = DateTime(_focusedMonth.year, _focusedMonth.month, dayNum);
+              final date =
+                  DateTime(_focusedMonth.year, _focusedMonth.month, dayNum);
               final count = _getCompletedCountForDate(date);
               final isSelected = _isSameDay(date, _selectedDate);
 
@@ -972,7 +1024,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
               const SizedBox(width: 6),
               _buildLegendBox(AppTheme.darkBackground, '0'),
               const SizedBox(width: 4),
-              _buildLegendBox(AppTheme.primaryPurple.withValues(alpha: 0.35), '1'),
+              _buildLegendBox(
+                  AppTheme.primaryPurple.withValues(alpha: 0.35), '1'),
               const SizedBox(width: 4),
               _buildLegendBox(AppTheme.accentCyan.withValues(alpha: 0.55), '2'),
               const SizedBox(width: 4),

@@ -13,7 +13,9 @@ class PremiumDonutChartCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final completed = tasks.where((task) => task.isCompleted).length;
     final overdue = tasks.where((task) => task.isOverdue).length;
-    final pending = tasks.length - completed;
+    final pending = tasks
+        .where((task) => !task.isCompleted && !task.isOverdue)
+        .length;
     final total = tasks.length;
 
     return Container(
@@ -48,6 +50,11 @@ class PremiumDonutChartCard extends StatelessWidget {
                   style:
                       const TextStyle(fontSize: 11, color: AppTheme.textMuted)),
             ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Your current task distribution',
+            style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
           ),
           const SizedBox(height: 18),
           LayoutBuilder(

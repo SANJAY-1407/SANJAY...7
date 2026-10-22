@@ -918,12 +918,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    final totalCount = _tasks.length;
-    final completedCount = _tasks.where((t) => t.isCompleted).length;
-    final pendingCount = _tasks.where((t) => !t.isCompleted).length;
-    final completionRate =
-        totalCount == 0 ? 0 : ((completedCount / totalCount) * 100).round();
-
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -981,125 +975,19 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 20),
 
-          // 2. Productivity Overview Cards (Feature 1)
+          // 2. Weekly Productivity Bar Chart
           AnimatedEntry(
             index: 1,
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildInsightStatCard(
-                        label: 'Total Tasks',
-                        value: '$totalCount',
-                        icon: Icons.assignment_outlined,
-                        color: AppTheme.accentCyan,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildInsightStatCard(
-                        label: 'Completed Tasks',
-                        value: '$completedCount',
-                        icon: Icons.check_circle_outline_rounded,
-                        color: AppTheme.successGreen,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildInsightStatCard(
-                        label: 'Pending Tasks',
-                        value: '$pendingCount',
-                        icon: Icons.pending_actions_rounded,
-                        color: AppTheme.warningOrange,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildInsightStatCard(
-                        label: 'Completion Rate',
-                        value: '$completionRate%',
-                        icon: Icons.speed_rounded,
-                        color: AppTheme.primaryPurple,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // 3. Weekly Productivity Bar Chart
-          AnimatedEntry(
-            index: 3,
             child: _buildWeeklyProductivityCard(),
           ),
           const SizedBox(height: 20),
 
-          // 4. Animated Task Status Breakdown
+          // 3. Animated Task Status Breakdown
           AnimatedEntry(
-            index: 4,
+            index: 2,
             child: PremiumDonutChartCard(tasks: _tasks),
           ),
           const SizedBox(height: 80),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInsightStatCard({
-    required String label,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.cardNavy,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: color.withValues(alpha: 0.25),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Icon(icon, size: 22, color: color),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppTheme.textMuted,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
         ],
       ),
     );

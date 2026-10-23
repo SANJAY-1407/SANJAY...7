@@ -30,6 +30,8 @@ class _AlarmScreenState extends State<AlarmScreen>
   @override
   void initState() {
     super.initState();
+    debugPrint(
+        '[AlarmScreen] Alarm UI launched for task ID ${widget.taskId}; starting task lookup and playback.');
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1300),
@@ -70,15 +72,22 @@ class _AlarmScreenState extends State<AlarmScreen>
         _isLoading = false;
       });
 
+      debugPrint(
+          '[AlarmScreen] Task data loaded for task ID ${task.id}; starting alarm playback.');
+
       final started = await _startAlarmPlayback(task);
       if (!mounted) return;
       if (started) {
+        debugPrint(
+            '[AlarmScreen] Alarm playback started for task ID ${task.id}.');
         await HapticFeedback.heavyImpact();
         setState(() {
           _isRinging = true;
           _audioError = null;
         });
       } else {
+        debugPrint(
+            '[AlarmScreen] Alarm playback did not start for task ID ${task.id}.');
         setState(() {
           _audioError =
               'Alarm sound could not start. Check the selected audio file and try again.';

@@ -342,7 +342,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   label: 'Enable',
                   textColor: Colors.white,
                   onPressed: () {
-                    AlarmService.instance.requestAlarmPermissions();
+                    _requestPermissionsAndReschedule(newTask);
                   },
                 ),
           behavior: SnackBarBehavior.floating,
@@ -405,7 +405,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   label: 'Enable',
                   textColor: Colors.white,
                   onPressed: () {
-                    AlarmService.instance.requestAlarmPermissions();
+                    _requestPermissionsAndReschedule(updatedTask);
                   },
                 ),
           behavior: SnackBarBehavior.floating,
@@ -415,6 +415,25 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _requestPermissionsAndReschedule(TaskItem task) async {
+    await AlarmService.instance.requestAlarmPermissions();
+    final scheduled = await AlarmService.instance.scheduleTaskAlarm(task);
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          scheduled
+              ? 'Alarm permission enabled and alarm scheduled.'
+              : 'Alarm is still not scheduled. Check Android notification and alarm permissions.',
+        ),
+        backgroundColor:
+            scheduled ? AppTheme.primaryPurple : AppTheme.warningOrange,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override

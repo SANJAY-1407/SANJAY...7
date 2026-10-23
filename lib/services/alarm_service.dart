@@ -10,7 +10,7 @@ import '../screens/alarm_screen.dart';
 void notificationTapBackground(NotificationResponse response) {
   final payload = response.payload;
   debugPrint(
-      '[AlarmService] Background notification tapped with payload: $payload');
+      '[AlarmService] Background notification response received for task ID: $payload');
   if (payload != null && payload.isNotEmpty) {
     navigatorKey.currentState?.push(
       MaterialPageRoute(
@@ -56,11 +56,10 @@ class AlarmService {
     if (_isInitialized) return;
 
     tz.initializeTimeZones();
-    try {
-      tz.setLocalLocation(tz.getLocation('UTC'));
-    } catch (e) {
-      debugPrint('[AlarmService] Error setting timezone location: $e');
-    }
+    final deviceNow = DateTime.now();
+    debugPrint(
+        '[AlarmService] Initializing on device timezone ${deviceNow.timeZoneName} '
+        '(${deviceNow.timeZoneOffset}). Scheduled times will be converted to UTC epochs.');
 
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -71,7 +70,7 @@ class AlarmService {
       onDidReceiveNotificationResponse: (response) {
         final payload = response.payload;
         debugPrint(
-            '[AlarmService] Foreground notification tapped with payload: $payload');
+            '[AlarmService] Foreground notification response received for task ID: $payload');
         if (payload != null && payload.isNotEmpty) {
           navigatorKey.currentState?.push(
             MaterialPageRoute(
@@ -141,7 +140,7 @@ class AlarmService {
     if (launchDetails?.didNotificationLaunchApp ?? false) {
       final payload = launchDetails?.notificationResponse?.payload;
       debugPrint(
-          '[AlarmService] App launched from notification with payload: $payload');
+          '[AlarmService] App launched from notification for task ID: $payload');
       if (payload != null && payload.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           navigatorKey.currentState?.push(
@@ -257,44 +256,25 @@ class AlarmService {
 
     const notificationDetails = NotificationDetails(android: androidDetails);
 
-    // Convert local DateTime directly to UTC TZDateTime to preserve exact epoch time
+    // Convert the local wall-clock value to a UTC TZDateTime so Android receives
+    // the same absolute instant regardless of the device timezone.
     final tzDateTime = tz.TZDateTime.from(
       task.scheduledDateTime.toUtc(),
       tz.getLocation('UTC'),
     );
 
-    debugPrint(
-        '[AlarmService] Scheduling alarm for task ID "${task.id}" ("${task.title}"):');
+    debugPrint('[AlarmService] Scheduling alarm for task ID "${task.id}":');
     debugPrint('  - Target Local Scheduled Time: ${task.scheduledDateTime}');
     debugPrint('  - Device Current Local Time:  ${DateTime.now()}');
     debugPrint('  - Target UTC TZDateTime:      $tzDateTime');
+    debugPrint('  - Target UTC epoch millis:    ${tzDateTime.millisecondsSinceEpoch}');
     debugPrint('  - Notification ID:            $notificationId');
 
     final exactAlarmsEnabled = _permissionStatus?.exactAlarmsEnabled;
     if (exactAlarmsEnabled == false) {
       debugPrint(
-          '[AlarmService] Exact alarms are not permitted; using inexact fallback for task ${task.id}.');
-    } else {
-      try {
-        await _notificationsPlugin.zonedSchedule(
-          notificationId,
-          '⏰ Task Alarm: ${task.title}',
-          task.description.isNotEmpty
-              ? task.description
-              : 'Your task time has arrived!',
-          tzDateTime,
-          notificationDetails,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
-          payload: task.id,
-        );
-        debugPrint(
-            '[AlarmService] Successfully scheduled exact alarm ID $notificationId');
-        return true;
-      } catch (e, stack) {
-        debugPrint('[AlarmService] Exact alarm schedule failed: $e\n$stack');
-      }
+          '[AlarmService] Exact alarms are not permitted; refusing to report task ${task.id} as scheduled.');
+      return false;
     }
 
     try {
@@ -306,16 +286,26 @@ class AlarmService {
             : 'Your task time has arrived!',
         tzDateTime,
         notificationDetails,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         payload: task.id,
       );
+
+      final pending = await _notificationsPlugin.pendingNotificationRequests();
+      final registered = pending.any((request) =>
+          request.id == notificationId && request.payload == task.id);
       debugPrint(
-          '[AlarmService] Successfully scheduled inexact fallback alarm ID $notificationId');
+          '[AlarmService] Exact alarm request ${registered ? 'registered' : 'not found'} '
+          'for task ${task.id}; pending request count=${pending.length}.');
+      if (!registered) {
+        debugPrint(
+            '[AlarmService] Exact schedule verification failed for task ${task.id}.');
+        return false;
+      }
       return true;
     } catch (e, stack) {
-      debugPrint('[AlarmService] Inexact alarm schedule failed: $e\n$stack');
+      debugPrint('[AlarmService] Exact alarm schedule failed for task ${task.id}: $e\n$stack');
       return false;
     }
   }

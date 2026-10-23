@@ -9,7 +9,23 @@ class AudioService {
   bool _isPlaying = false;
   String? _currentUri;
 
-  AudioService._init();
+  AudioService._init() {
+    _player.onPlayerStateChanged.listen((state) {
+      debugPrint('[AudioService] Player state: $state');
+      if (state == PlayerState.completed || state == PlayerState.stopped) {
+        _isPlaying = false;
+        _currentUri = null;
+      }
+    });
+    _player.onLog.listen((message) {
+      debugPrint('[AudioService] Native audio log: $message');
+    });
+    _player.onPlayerComplete.listen((_) {
+      debugPrint('[AudioService] Playback completed.');
+      _isPlaying = false;
+      _currentUri = null;
+    });
+  }
 
   bool get isPlaying => _isPlaying;
   String? get currentUri => _currentUri;
@@ -28,7 +44,7 @@ class AudioService {
         ),
       ));
     } catch (e) {
-      debugPrint('Error configuring AudioContext for Alarm stream: $e');
+      debugPrint('[AudioService] Error configuring alarm audio context: $e');
     }
   }
 
@@ -55,7 +71,7 @@ class AudioService {
           await _player.play(DeviceFileSource(soundUri));
         } catch (e) {
           debugPrint(
-              '[AudioService] Failed to preview custom sound "$soundUri": $e. Falling back to bundled default.');
+              '[AudioService] Failed to preview custom sound (type=custom_song): $e. Falling back to bundled default.');
           await _player.play(AssetSource(_defaultAlarmAsset));
           usedDefault = true;
         }
@@ -67,12 +83,8 @@ class AudioService {
       _isPlaying = true;
       _currentUri = usedDefault ? 'default_alarm' : soundUri;
 
-      _player.onPlayerComplete.listen((_) {
-        _isPlaying = false;
-        _currentUri = null;
-      });
     } catch (e) {
-      debugPrint('Error in playPreview: $e');
+      debugPrint('[AudioService] Error in playPreview: $e');
       _isPlaying = false;
       _currentUri = null;
       rethrow;
@@ -105,7 +117,7 @@ class AudioService {
           return true;
         } catch (e) {
           debugPrint(
-              '[AudioService] Failed to play custom song "$soundUri", falling back to bundled default alarm: $e');
+              '[AudioService] Failed to play custom song; falling back to bundled default alarm: $e');
         }
       }
 
@@ -122,7 +134,7 @@ class AudioService {
         return false;
       }
     } catch (e) {
-      debugPrint('General error in playAlarm: $e');
+      debugPrint('[AudioService] General error in playAlarm: $e');
       _isPlaying = false;
       _currentUri = null;
       return false;
@@ -135,7 +147,7 @@ class AudioService {
       await _player.stop();
       await _player.setReleaseMode(ReleaseMode.release);
     } catch (e) {
-      debugPrint('Error stopping audio preview: $e');
+      debugPrint('[AudioService] Error stopping audio preview: $e');
     } finally {
       _isPlaying = false;
       _currentUri = null;

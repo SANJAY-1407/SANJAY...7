@@ -170,9 +170,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         content: const SingleChildScrollView(
           child: Text(
             'AlertBox respects your privacy.\n\n'
-            'â€¢ Local Data Ownership: All your tasks, custom audio files, and alarm settings are stored locally on your device.\n'
-            'â€¢ Offline Capabilities: AlertBox operates completely offline.\n'
-            'â€¢ Zero Data Harvesting: Your personal data and audio recordings are never collected or sold to third parties.',
+            '• Local Data Ownership: All your tasks, custom audio files, and alarm settings are stored locally on your device.\n'
+            '• Offline Capabilities: AlertBox operates completely offline.\n'
+            '• Zero Data Harvesting: Your personal data and audio recordings are never collected or sold to third parties.',
             style: TextStyle(color: AppTheme.textMuted, fontSize: 13, height: 1.5),
           ),
         ),

@@ -16,7 +16,6 @@ import '../widgets/premium_donut_chart.dart';
 import 'calendar_screen.dart';
 import 'profile_screen.dart';
 import 'task_form_screen.dart';
-import 'clock_alarm_list_screen.dart';
 
 enum StatusFilter { all, pending, completed, overdue }
 
@@ -76,9 +75,6 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _refreshAlarmsAfterReturningFromSettings() async {
     try {
-      // The user may have granted exact alarms or notifications in Android
-      // Settings while this process was paused. Refresh the capability state
-      // and reconcile persisted tasks with the system alarm manager.
       await AlarmService.instance.refreshPermissionStatus();
       await AlarmService.instance.reconcileAllAlarms(_tasks);
     } catch (e) {
@@ -90,11 +86,11 @@ class _HomeScreenState extends State<HomeScreen>
     final hour = DateTime.now().hour;
 
     if (hour < 12) {
-      return 'Good Morning! â˜€ï¸';
+      return 'Good Morning! ☀️';
     } else if (hour < 17) {
-      return 'Good Afternoon! ðŸŒ¤ï¸';
+      return 'Good Afternoon! ⛅';
     } else {
-      return 'Good Evening! ðŸŒ™';
+      return 'Good Evening! 🌙';
     }
   }
 
@@ -177,21 +173,15 @@ class _HomeScreenState extends State<HomeScreen>
 
     switch (_sortOption) {
       case SortOption.priority:
-        list.sort(
-          (a, b) => b.priorityWeight.compareTo(a.priorityWeight),
-        );
+        list.sort((a, b) => b.priorityWeight.compareTo(a.priorityWeight));
         break;
 
       case SortOption.recentlyCreated:
-        list.sort(
-          (a, b) => b.createdAt.compareTo(a.createdAt),
-        );
+        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         break;
 
       case SortOption.dateTime:
-        list.sort(
-          (a, b) => a.scheduledDateTime.compareTo(b.scheduledDateTime),
-        );
+        list.sort((a, b) => a.scheduledDateTime.compareTo(b.scheduledDateTime));
         break;
     }
 
@@ -212,6 +202,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _toggleTaskCompletion(TaskItem task) async {
+    HapticFeedback.selectionClick();
     setState(() {
       task.isCompleted = !task.isCompleted;
       task.completedAt = task.isCompleted ? DateTime.now() : null;
@@ -219,10 +210,13 @@ class _HomeScreenState extends State<HomeScreen>
 
     await DatabaseHelper.instance.updateTask(task);
 
-    try {
+    if (task.isCompleted) {
+      // Completed tasks cancel any pending reminder
+      await AlarmService.instance.cancelTaskAlarm(task.id);
+    } else if (task.reminderEnabled &&
+        task.scheduledDateTime.isAfter(DateTime.now())) {
+      // Uncompleted tasks in the future re-schedule their reminder
       await AlarmService.instance.scheduleTaskAlarm(task);
-    } catch (e) {
-      debugPrint('Alarm scheduling error: $e');
     }
 
     await _loadTasksFromDatabase(showLoading: false);
@@ -306,7 +300,6 @@ class _HomeScreenState extends State<HomeScreen>
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).clearSnackBars();
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Task "${task.title}" deleted.'),
@@ -329,56 +322,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
 
     if (newTask != null) {
-      await DatabaseHelper.instance.insertTask(newTask);
-      bool alarmScheduled = false;
-      try {
-        alarmScheduled = await AlarmService.instance.scheduleTaskAlarm(newTask);
-      } catch (e) {
-        debugPrint('Alarm scheduling error: $e');
-      }
       await _loadTasksFromDatabase(showLoading: false);
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).clearSnackBars();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                alarmScheduled
-                    ? Icons.check_circle_rounded
-                    : Icons.warning_amber_rounded,
-                color: Colors.white,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  alarmScheduled
-                      ? 'Task "${newTask.title}" saved and alarm scheduled!'
-                      : 'Task saved, but the alarm could not be scheduled. Check notification permissions.',
-                ),
-              ),
-            ],
-          ),
-          backgroundColor:
-              alarmScheduled ? AppTheme.primaryPurple : AppTheme.warningOrange,
-          action: alarmScheduled
-              ? null
-              : SnackBarAction(
-                  label: 'Enable',
-                  textColor: Colors.white,
-                  onPressed: () {
-                    _requestPermissionsAndReschedule(newTask);
-                  },
-                ),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-      );
     }
   }
 
@@ -391,77 +335,8 @@ class _HomeScreenState extends State<HomeScreen>
     );
 
     if (updatedTask != null) {
-      await DatabaseHelper.instance.updateTask(updatedTask);
-      bool alarmScheduled = false;
-      try {
-        alarmScheduled =
-            await AlarmService.instance.scheduleTaskAlarm(updatedTask);
-      } catch (e) {
-        debugPrint('Alarm scheduling error: $e');
-      }
       await _loadTasksFromDatabase(showLoading: false);
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).clearSnackBars();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                alarmScheduled
-                    ? Icons.task_alt_rounded
-                    : Icons.warning_amber_rounded,
-                color: Colors.white,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  alarmScheduled
-                      ? 'Task "${updatedTask.title}" updated and alarm rescheduled!'
-                      : 'Task updated, but the alarm could not be scheduled. Check notification permissions.',
-                ),
-              ),
-            ],
-          ),
-          backgroundColor:
-              alarmScheduled ? AppTheme.primaryPurple : AppTheme.warningOrange,
-          action: alarmScheduled
-              ? null
-              : SnackBarAction(
-                  label: 'Enable',
-                  textColor: Colors.white,
-                  onPressed: () {
-                    _requestPermissionsAndReschedule(updatedTask);
-                  },
-                ),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-      );
     }
-  }
-
-  Future<void> _requestPermissionsAndReschedule(TaskItem task) async {
-    await AlarmService.instance.requestAlarmPermissions();
-    final scheduled = await AlarmService.instance.scheduleTaskAlarm(task);
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          scheduled
-              ? 'Alarm permission enabled and alarm scheduled.'
-              : 'Alarm is still not scheduled. Check Android notification and alarm permissions.',
-        ),
-        backgroundColor:
-            scheduled ? AppTheme.primaryPurple : AppTheme.warningOrange,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   @override
@@ -600,62 +475,47 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ],
                 ),
-                Row(
-                  children: [
-                    IconButton(
-                      tooltip: 'Clock Alarms',
-                      onPressed: () {
-                        HapticFeedback.lightImpact();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ClockAlarmListScreen(),
-                          ),
-                        );
-                      },
-                      icon: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.cardNavy,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppTheme.accentCyan.withValues(alpha: 0.35),
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.alarm_rounded,
+                IconButton(
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                  },
+                  tooltip: 'Notifications',
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardNavy,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppTheme.accentCyan.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        const Icon(
+                          Icons.notifications_none_rounded,
                           color: AppTheme.accentCyan,
                           size: 20,
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    IconButton(
-                      onPressed: () {
-                        HapticFeedback.selectionClick();
-
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('No new notifications'),
-                            duration: Duration(seconds: 2),
+                        Positioned(
+                          top: -2,
+                          right: -2,
+                          child: Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryPurple,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppTheme.cardNavy,
+                                width: 1.5,
+                              ),
+                            ),
                           ),
-                        );
-                      },
-                      icon: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.cardNavy,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white10),
                         ),
-                        child: const Icon(
-                          Icons.notifications_active_outlined,
-                          color: AppTheme.textWhite,
-                          size: 20,
-                        ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ],
             ),
@@ -691,105 +551,9 @@ class _HomeScreenState extends State<HomeScreen>
 
           const SizedBox(height: 20),
 
-          // Clock Alarms Quick-Access Card
+          // 3. Today Statistics + Animated Progress Ring
           AnimatedEntry(
             index: 2,
-            child: GestureDetector(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ClockAlarmListScreen(),
-                  ),
-                );
-              },
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 20),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppTheme.cardNavy,
-                      AppTheme.cardNavy.withValues(alpha: 0.85),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: AppTheme.accentCyan.withValues(alpha: 0.25),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.accentCyan.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        gradient: AppTheme.primaryGradient,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(
-                        Icons.alarm_rounded,
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                'Clock Alarms',
-                                style: TextStyle(
-                                  color: AppTheme.textWhite,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
-                              ),
-                              SizedBox(width: 6),
-                              Icon(
-                                Icons.arrow_forward_ios_rounded,
-                                size: 12,
-                                color: AppTheme.accentCyan,
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Wake-up alarms, weekday repeats & snooze',
-                            style: TextStyle(
-                              color: AppTheme.textMuted,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppTheme.accentCyan,
-                      size: 24,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // 3. Today Statistics + NEW Premium Animated Progress Ring
-          AnimatedEntry(
-            index: 3,
             child: ProgressCard(
               totalTasks: _totalTodayCount,
               completedTasks: _completedTodayCount,
@@ -826,16 +590,16 @@ class _HomeScreenState extends State<HomeScreen>
             AnimatedEntry(
               index: 5,
               child: EmptyState(
-                title: 'No Tasks Found! ðŸ“',
+                title: 'No Tasks Found! 📋',
                 message:
-                    'Your saved task list is empty. Use New Task in the navigation bar when you are ready to begin.',
+                    'Your saved task list is empty. Tap "+" or New Task to create your first task with an alarm reminder.',
               ),
             )
           else if (displayedList.isEmpty)
             AnimatedEntry(
               index: 5,
               child: EmptyState(
-                title: 'No Matching Tasks ðŸ”',
+                title: 'No Matching Tasks 🔍',
                 message:
                     'No tasks match your selected filter criteria. Try resetting filters.',
                 actionLabel: 'Reset Filters',
@@ -986,7 +750,7 @@ class _HomeScreenState extends State<HomeScreen>
                 const SizedBox(width: 8),
                 _buildStatusFilterChip(
                   StatusFilter.overdue,
-                  'Overdue âš ï¸',
+                  'Overdue ⚠️',
                 ),
               ],
             ),
@@ -1116,7 +880,7 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  // Premium Productivity Insights Dashboard (Replacing Placeholder)
+  // Premium Productivity Insights Dashboard
   Widget _buildInsightsView() {
     if (_isLoading) {
       return const Center(

@@ -20,7 +20,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -30,6 +30,9 @@ class DatabaseHelper {
         }
         if (oldVersion < 3) {
           await db.execute('ALTER TABLE tasks ADD COLUMN completedAt TEXT');
+        }
+        if (oldVersion < 4) {
+          await db.execute('ALTER TABLE tasks ADD COLUMN reminderEnabled INTEGER DEFAULT 1');
         }
       },
     );
@@ -52,7 +55,8 @@ class DatabaseHelper {
         alarmSoundType TEXT DEFAULT 'default',
         alarmSoundName TEXT DEFAULT 'Default Alarm Sound',
         alarmSoundUri TEXT DEFAULT 'default_alarm',
-        completedAt TEXT
+        completedAt TEXT,
+        reminderEnabled INTEGER DEFAULT 1
       )
     ''');
   }
@@ -72,6 +76,19 @@ class DatabaseHelper {
     final db = await instance.database;
     final result = await db.query('tasks', orderBy: 'scheduledDateTime ASC');
     return result.map((json) => TaskItem.fromMap(json)).toList();
+  }
+
+  /// Retrieve a single task by ID
+  Future<TaskItem?> getTaskById(String id) async {
+    final db = await instance.database;
+    final result = await db.query(
+      'tasks',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (result.isEmpty) return null;
+    return TaskItem.fromMap(result.first);
   }
 
   /// Update an existing task in the database

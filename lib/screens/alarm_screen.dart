@@ -28,6 +28,7 @@ class _AlarmScreenState extends State<AlarmScreen>
   bool _isActionTaken = false;
   String? _audioError;
   late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
@@ -36,11 +37,13 @@ class _AlarmScreenState extends State<AlarmScreen>
         '[AlarmScreen] Alarm UI launched for task ID ${widget.taskId}; starting task lookup and playback.');
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1300),
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 0.94, end: 1.06).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
-    // Let the loading frame render before touching SQLite or initializing the
-    // native audio player. This avoids a cold full-screen launch appearing as
-    // a blank window on slower physical devices.
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_loadTaskAndPlayAlarm());
     });
@@ -60,33 +63,31 @@ class _AlarmScreenState extends State<AlarmScreen>
 
   Future<void> _loadTaskAndPlayAlarm() async {
     try {
-      final tasks = await DatabaseHelper.instance.getAllTasks();
-      final task = tasks.firstWhere(
-        (t) => t.id == widget.taskId,
-        orElse: () => TaskItem(
-          id: widget.taskId,
-          title: 'Scheduled Task Reminder',
-          description: 'Your task alarm is ready for attention.',
-          scheduledDateTime: DateTime.now(),
-          category: 'General',
-          priority: 'High',
-        ),
-      );
+      final task = await DatabaseHelper.instance.getTaskById(widget.taskId);
+      final resolvedTask = task ??
+          TaskItem(
+            id: widget.taskId,
+            title: 'Scheduled Task Reminder',
+            description: 'Your task alarm is ready for attention.',
+            scheduledDateTime: DateTime.now(),
+            category: 'Personal',
+            priority: 'High',
+          );
 
       if (!mounted) return;
       setState(() {
-        _task = task;
+        _task = resolvedTask;
         _isLoading = false;
       });
 
       debugPrint(
-          '[AlarmScreen] Task data loaded for task ID ${task.id}; starting alarm playback.');
+          '[AlarmScreen] Task loaded for task ID ${resolvedTask.id}; starting alarm playback.');
 
-      final started = await _startAlarmPlayback(task);
+      final started = await _startAlarmPlayback(resolvedTask);
       if (!mounted) return;
       if (started) {
         debugPrint(
-            '[AlarmScreen] Alarm playback started for task ID ${task.id}.');
+            '[AlarmScreen] Alarm playback started for task ID ${resolvedTask.id}.');
         await HapticFeedback.heavyImpact();
         setState(() {
           _isRinging = true;
@@ -94,10 +95,10 @@ class _AlarmScreenState extends State<AlarmScreen>
         });
       } else {
         debugPrint(
-            '[AlarmScreen] Alarm playback did not start for task ID ${task.id}.');
+            '[AlarmScreen] Alarm playback did not start for task ID ${resolvedTask.id}.');
         setState(() {
           _audioError =
-              'Alarm sound could not start. Check the selected audio file and try again.';
+              'Alarm sound could not start. Using fallback audio.';
         });
       }
     } catch (e, stack) {
@@ -140,10 +141,12 @@ class _AlarmScreenState extends State<AlarmScreen>
   Future<void> _dismissAlarm() async {
     if (_isActionTaken) return;
     setState(() => _isActionTaken = true);
-    await HapticFeedback.mediumImpact();
+    await HapticFeedback.heavyImpact();
 
+    // Stop audio immediately
     await AudioService.instance.stopPreview();
     _activeAlarmTaskId = null;
+
     try {
       await AlarmService.instance.cancelTaskAlarm(widget.taskId);
     } catch (e, stack) {
@@ -151,8 +154,12 @@ class _AlarmScreenState extends State<AlarmScreen>
           '[AlarmScreen] Failed to cancel alarm ${widget.taskId}: $e\n$stack');
     }
 
+    // Notice: Task is intentionally NOT marked completed.
+    // Dismissing an alarm simply silences the alarm.
+    // Task completion remains a distinct user action.
+
     if (!mounted) return;
-    Navigator.pop(context);
+    Navigator.of(context).pop();
   }
 
   Future<void> _snoozeAlarm() async {
@@ -160,6 +167,7 @@ class _AlarmScreenState extends State<AlarmScreen>
     setState(() => _isActionTaken = true);
     await HapticFeedback.mediumImpact();
 
+    // Stop audio immediately
     await AudioService.instance.stopPreview();
     _activeAlarmTaskId = null;
 
@@ -167,13 +175,11 @@ class _AlarmScreenState extends State<AlarmScreen>
     final snoozedTask = _task!.copyWith(scheduledDateTime: snoozedTime);
 
     try {
-      // Keep the snoozed time in SQLite so a process restart does not restore
-      // the old, already-triggered schedule.
       await DatabaseHelper.instance.updateTask(snoozedTask);
       final scheduled =
           await AlarmService.instance.scheduleTaskAlarm(snoozedTask);
       if (!scheduled) {
-        throw StateError('The notification could not be scheduled.');
+        throw StateError('The snooze notification could not be scheduled.');
       }
     } catch (e, stack) {
       debugPrint(
@@ -189,13 +195,20 @@ class _AlarmScreenState extends State<AlarmScreen>
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Alarm snoozed for 10 minutes'),
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.snooze_rounded, color: Colors.white, size: 20),
+            SizedBox(width: 10),
+            Expanded(child: Text('Alarm snoozed for 10 minutes')),
+          ],
+        ),
         backgroundColor: AppTheme.warningOrange,
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
-    Navigator.pop(context);
+    Navigator.of(context).pop();
   }
 
   Future<void> _retryPlayback() async {
@@ -223,6 +236,37 @@ class _AlarmScreenState extends State<AlarmScreen>
     super.dispose();
   }
 
+  Color _categoryColor(String category) {
+    switch (category.toLowerCase()) {
+      case 'work':
+        return AppTheme.categoryWork;
+      case 'study':
+        return AppTheme.categoryStudy;
+      case 'health':
+      case 'fitness':
+        return AppTheme.categoryHealth;
+      case 'shopping':
+        return AppTheme.categoryShopping;
+      case 'bills':
+        return AppTheme.categoryBills;
+      case 'family':
+        return AppTheme.categoryFamily;
+      default:
+        return AppTheme.categoryPersonal;
+    }
+  }
+
+  Color _priorityColor(String priority) {
+    switch (priority.toLowerCase()) {
+      case 'high':
+        return AppTheme.urgentRed;
+      case 'medium':
+        return AppTheme.warningOrange;
+      default:
+        return AppTheme.accentCyan;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading || _task == null) {
@@ -235,378 +279,346 @@ class _AlarmScreenState extends State<AlarmScreen>
     }
 
     final task = _task!;
-    final statusColor =
-        _isRinging ? AppTheme.urgentRed : AppTheme.warningOrange;
-    final statusLabel = _isRinging
-        ? 'ALARM RINGING'
-        : (_audioError == null ? 'STARTING ALARM' : 'AUDIO UNAVAILABLE');
+    final categoryColor = _categoryColor(task.category);
+    final priorityColor = _priorityColor(task.priority);
 
-    return Scaffold(
-      backgroundColor: AppTheme.darkBackground,
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF171D23), AppTheme.darkBackground],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SafeArea(
-          child: Stack(
-            children: [
-              Positioned(
-                top: -100,
-                left: -70,
-                right: -70,
-                child: IgnorePointer(
-                  child: Container(
-                    height: 260,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          _dismissAlarm();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppTheme.darkBackground,
+        body: SafeArea(
+          child: Container(
+            width: double.infinity,
+            height: double.infinity,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF141923), AppTheme.darkBackground],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: Column(
+                children: [
+                  // App Bar / Tag
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cardNavy,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: _isRinging
+                                ? AppTheme.accentCyan.withValues(alpha: 0.6)
+                                : Colors.white12,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.alarm_on_rounded,
+                              size: 16,
+                              color: _isRinging
+                                  ? AppTheme.accentCyan
+                                  : AppTheme.textMuted,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _isRinging ? 'TASK ALARM RINGING' : 'ALERTBOX ALARM',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.2,
+                                color: _isRinging
+                                    ? AppTheme.accentCyan
+                                    : AppTheme.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: _isActionTaken ? null : _dismissAlarm,
+                        icon: const Icon(Icons.close_rounded),
+                        color: AppTheme.textMuted,
+                        tooltip: 'Dismiss',
+                      ),
+                    ],
+                  ),
+
+                  const Spacer(flex: 1),
+
+                  // Pulsing Visual Alarm Icon
+                  ScaleTransition(
+                    scale: _pulseAnimation,
+                    child: Container(
+                      width: 130,
+                      height: 130,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            AppTheme.primaryPurple.withValues(alpha: 0.35),
+                            AppTheme.accentCyan.withValues(alpha: 0.1),
+                            Colors.transparent,
+                          ],
+                        ),
+                        border: Border.all(
+                          color: AppTheme.accentCyan.withValues(alpha: 0.4),
+                          width: 2,
+                        ),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.notifications_active_rounded,
+                          size: 58,
+                          color: AppTheme.accentCyan,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // Scheduled Time
+                  Text(
+                    task.formattedTime,
+                    style: const TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.textWhite,
+                      letterSpacing: -1.2,
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  Text(
+                    task.formattedDate,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.accentCyan,
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Task Title Card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 16),
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.accentCyan.withValues(alpha: 0.12),
-                          blurRadius: 100,
-                          spreadRadius: 20,
+                      color: AppTheme.cardNavy,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          task.title,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.textWhite,
+                          ),
+                        ),
+                        if (task.description.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            task.description,
+                            textAlign: TextAlign.center,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: AppTheme.textMuted,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 14),
+                        // Badges Row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // Category Badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: categoryColor.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: categoryColor.withValues(alpha: 0.4),
+                                ),
+                              ),
+                              child: Text(
+                                task.category,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: categoryColor,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Priority Badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: priorityColor.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: priorityColor.withValues(alpha: 0.4),
+                                ),
+                              ),
+                              child: Text(
+                                '${task.priority} Priority',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: priorityColor,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                ),
-              ),
-              SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: MediaQuery.sizeOf(context).height -
-                        MediaQuery.paddingOf(context).vertical -
-                        40,
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          IconButton(
-                            onPressed: _isActionTaken
-                                ? null
-                                : () => Navigator.maybePop(context),
-                            icon: const Icon(Icons.close_rounded),
-                            color: AppTheme.textMuted,
-                            tooltip: 'Close alarm',
+
+                  if (_audioError != null) ...[
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: _retryPlayback,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.warningOrange.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color:
+                                AppTheme.warningOrange.withValues(alpha: 0.4),
                           ),
-                          const Text(
-                            'ALERTBOX',
-                            style: TextStyle(
-                              color: AppTheme.textMuted,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 2.4,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.refresh_rounded,
+                              size: 16,
+                              color: AppTheme.warningOrange,
                             ),
-                          ),
-                          const SizedBox(width: 48),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      _StatusPill(label: statusLabel, color: statusColor),
-                      const SizedBox(height: 28),
-                      AnimatedBuilder(
-                        animation: _pulseController,
-                        builder: (context, child) {
-                          final scale = 0.96 + (_pulseController.value * 0.04);
-                          return Transform.scale(scale: scale, child: child);
-                        },
-                        child: Container(
-                          width: 148,
-                          height: 148,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: AppTheme.primaryGradient,
-                            boxShadow: [
-                              BoxShadow(
-                                color:
-                                    AppTheme.accentCyan.withValues(alpha: 0.28),
-                                blurRadius: 38,
-                                spreadRadius: 8,
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                _audioError!,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.warningOrange,
+                                ),
                               ),
-                            ],
-                          ),
-                          child: Container(
-                            margin: const EdgeInsets.all(7),
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppTheme.darkBackground,
                             ),
-                            child: const Icon(
-                              Icons.alarm_rounded,
-                              size: 62,
-                              color: AppTheme.accentCyan,
-                            ),
-                          ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 28),
-                      Text(
-                        task.title,
-                        textAlign: TextAlign.center,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.textWhite,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
-                          height: 1.18,
+                    ),
+                  ],
+
+                  const Spacer(flex: 2),
+
+                  // Dismiss Button (Big Primary Action)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: _isActionTaken ? null : _dismissAlarm,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.accentCyan,
+                        foregroundColor: AppTheme.darkBackground,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
                         ),
                       ),
-                      if (task.description.isNotEmpty) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          task.description,
-                          textAlign: TextAlign.center,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppTheme.textMuted,
-                            fontSize: 14,
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 22),
-                      _TaskMetaCard(task: task),
-                      if (_audioError != null) ...[
-                        const SizedBox(height: 14),
-                        _AudioErrorCard(
-                          message: _audioError!,
-                          onRetry: _retryPlayback,
-                        ),
-                      ],
-                      const SizedBox(height: 28),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 58,
-                        child: FilledButton.icon(
-                          onPressed: _isActionTaken ? null : _dismissAlarm,
-                          icon: const Icon(Icons.check_circle_outline_rounded),
-                          label: const Text(
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle_outline_rounded, size: 22),
+                          SizedBox(width: 10),
+                          Text(
                             'Dismiss Alarm',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 17,
                               fontWeight: FontWeight.w800,
+                              letterSpacing: 0.3,
                             ),
                           ),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppTheme.urgentRed,
-                            foregroundColor: Colors.white,
-                            disabledBackgroundColor:
-                                AppTheme.urgentRed.withValues(alpha: 0.35),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Snooze Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: OutlinedButton(
+                      onPressed: _isActionTaken ? null : _snoozeAlarm,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.textWhite,
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.2),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 54,
-                        child: OutlinedButton.icon(
-                          onPressed: _isActionTaken ? null : _snoozeAlarm,
-                          icon: const Icon(Icons.snooze_rounded),
-                          label: const Text(
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.snooze_rounded,
+                              size: 20, color: AppTheme.warningOrange),
+                          SizedBox(width: 8),
+                          Text(
                             'Snooze for 10 minutes',
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.warningOrange,
-                            side: BorderSide(
-                              color:
-                                  AppTheme.warningOrange.withValues(alpha: 0.7),
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                          ),
-                        ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                    ],
+                    ),
                   ),
-                ),
+
+                  const SizedBox(height: 12),
+                ],
               ),
-            ],
+            ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _StatusPill({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.13),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: color.withValues(alpha: 0.45)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.circle, size: 8, color: color),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TaskMetaCard extends StatelessWidget {
-  final TaskItem task;
-
-  const _TaskMetaCard({required this.task});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.cardNavy.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _MetaItem(
-              icon: Icons.schedule_rounded,
-              label: 'Scheduled',
-              value: '${task.formattedDate}\n${task.formattedTime}',
-              color: AppTheme.accentCyan,
-            ),
-          ),
-          Container(width: 1, height: 42, color: Colors.white12),
-          Expanded(
-            child: _MetaItem(
-              icon: Icons.sell_outlined,
-              label: 'Category',
-              value: task.category,
-              color: AppTheme.primaryPurple,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetaItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  const _MetaItem({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: color, size: 20),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppTheme.textMuted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppTheme.textWhite,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  height: 1.25,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AudioErrorCard extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-
-  const _AudioErrorCard({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-      decoration: BoxDecoration(
-        color: AppTheme.warningOrange.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
-        border:
-            Border.all(color: AppTheme.warningOrange.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.volume_off_rounded,
-              color: AppTheme.warningOrange, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: AppTheme.textMuted,
-                fontSize: 12,
-                height: 1.35,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: onRetry,
-            child: const Text('Retry'),
-          ),
-        ],
       ),
     );
   }

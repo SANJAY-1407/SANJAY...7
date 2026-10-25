@@ -8,12 +8,13 @@ class TaskCard extends StatelessWidget {
   final VoidCallback onEditTask;
   final VoidCallback? onDeleteTask;
 
-  const TaskCard(
-      {super.key,
-      required this.task,
-      required this.onToggleCompleted,
-      required this.onEditTask,
-      this.onDeleteTask});
+  const TaskCard({
+    super.key,
+    required this.task,
+    required this.onToggleCompleted,
+    required this.onEditTask,
+    this.onDeleteTask,
+  });
 
   Color _priorityColor() {
     switch (task.priority.toLowerCase()) {
@@ -65,111 +66,170 @@ class TaskCard extends StatelessWidget {
                 : AppTheme.cardNavy,
             borderRadius: BorderRadius.circular(AppTheme.radiusL),
             border: Border.all(
-                color: task.isOverdue
-                    ? AppTheme.urgentRed.withValues(alpha: .55)
-                    : Colors.white.withValues(alpha: .06)),
+              color: task.isOverdue
+                  ? AppTheme.urgentRed.withValues(alpha: .55)
+                  : Colors.white.withValues(alpha: .06),
+            ),
           ),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(
-                  child: Text(task.title,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      task.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          color: task.isCompleted
-                              ? AppTheme.textMuted
-                              : AppTheme.textWhite,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          decoration: task.isCompleted
-                              ? TextDecoration.lineThrough
-                              : null))),
-              PopupMenuButton<String>(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                icon: const Icon(Icons.more_horiz_rounded,
-                    color: AppTheme.textMuted, size: 20),
-                color: AppTheme.surfaceLight,
-                onSelected: (value) {
-                  if (value == 'edit') onEditTask();
-                  if (value == 'delete') onDeleteTask?.call();
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(value: 'edit', child: Text('Edit task')),
-                  if (onDeleteTask != null)
-                    const PopupMenuItem(
-                        value: 'delete', child: Text('Delete task'))
+                        color: task.isCompleted
+                            ? AppTheme.textMuted
+                            : AppTheme.textWhite,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        decoration:
+                            task.isCompleted ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    icon: const Icon(Icons.more_horiz_rounded,
+                        color: AppTheme.textMuted, size: 20),
+                    color: AppTheme.surfaceLight,
+                    onSelected: (value) {
+                      if (value == 'edit') onEditTask();
+                      if (value == 'delete') onDeleteTask?.call();
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                          value: 'edit', child: Text('Edit task')),
+                      if (onDeleteTask != null)
+                        const PopupMenuItem(
+                            value: 'delete',
+                            child: Text(
+                              'Delete task',
+                              style: TextStyle(color: AppTheme.urgentRed),
+                            )),
+                    ],
+                  ),
                 ],
               ),
-            ]),
-            if (task.description.isNotEmpty) ...[
-              const SizedBox(height: 5),
-              Text(task.description,
+              if (task.description.isNotEmpty) ...[
+                const SizedBox(height: 5),
+                Text(
+                  task.description,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style:
-                      const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
-            ],
-            const SizedBox(height: 12),
-            Row(children: [
-              _pill(task.priority, priorityColor),
-              const SizedBox(width: 7),
-              _pill(task.category, categoryColor),
-              const Spacer(),
-              InkResponse(
-                  onTap: onToggleCompleted,
-                  radius: 18,
-                  child: Icon(
+                      const TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _pill(task.priority, priorityColor),
+                  const SizedBox(width: 7),
+                  _pill(task.category, categoryColor),
+                  if (task.reminderEnabled) ...[
+                    const SizedBox(width: 7),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentCyan.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.alarm_rounded,
+                              size: 11, color: AppTheme.accentCyan),
+                          SizedBox(width: 4),
+                          Text(
+                            'Alarm',
+                            style: TextStyle(
+                              color: AppTheme.accentCyan,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  InkResponse(
+                    onTap: onToggleCompleted,
+                    radius: 18,
+                    child: Icon(
                       task.isCompleted
                           ? Icons.check_circle_rounded
                           : Icons.radio_button_unchecked_rounded,
                       color: task.isCompleted
                           ? AppTheme.successGreen
                           : AppTheme.textMuted,
-                      size: 21)),
-            ]),
-            const SizedBox(height: 12),
-            ClipRRect(
+                      size: 22,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: LinearProgressIndicator(
-                    minHeight: 3,
-                    value: progress,
-                    backgroundColor: Colors.white.withValues(alpha: .08),
-                    valueColor: AlwaysStoppedAnimation(task.isCompleted
-                        ? AppTheme.successGreen
-                        : AppTheme.accentCyan))),
-            const SizedBox(height: 8),
-            Row(children: [
-              Icon(Icons.schedule_rounded,
-                  size: 13,
-                  color:
-                      task.isOverdue ? AppTheme.urgentRed : AppTheme.textMuted),
-              const SizedBox(width: 5),
-              Text(
-                  task.isToday
-                      ? task.formattedTime
-                      : '${task.formattedDate} • ${task.formattedTime}',
-                  style: TextStyle(
+                  minHeight: 3,
+                  value: progress,
+                  backgroundColor: Colors.white.withValues(alpha: .08),
+                  valueColor: AlwaysStoppedAnimation(task.isCompleted
+                      ? AppTheme.successGreen
+                      : AppTheme.accentCyan),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    Icons.schedule_rounded,
+                    size: 13,
+                    color: task.isOverdue
+                        ? AppTheme.urgentRed
+                        : AppTheme.textMuted,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    task.isToday
+                        ? task.formattedTime
+                        : '${task.formattedDate} • ${task.formattedTime}',
+                    style: TextStyle(
                       color: task.isOverdue
                           ? AppTheme.urgentRed
                           : AppTheme.textMuted,
-                      fontSize: 11)),
-              const Spacer(),
-              Text(
-                  task.isCompleted
-                      ? 'Complete'
-                      : (task.isOverdue
-                          ? 'Overdue'
-                          : '${(progress * 100).round()}%'),
-                  style: TextStyle(
+                      fontSize: 11,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    task.isCompleted
+                        ? 'Complete'
+                        : (task.isOverdue
+                            ? 'Overdue'
+                            : '${(progress * 100).round()}%'),
+                    style: TextStyle(
                       color: task.isCompleted
                           ? AppTheme.successGreen
                           : AppTheme.textMuted,
                       fontSize: 11,
-                      fontWeight: FontWeight.w600)),
-            ]),
-          ]),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -178,10 +238,16 @@ class TaskCard extends StatelessWidget {
   Widget _pill(String label, Color color) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
         decoration: BoxDecoration(
-            color: color.withValues(alpha: .14),
-            borderRadius: BorderRadius.circular(20)),
-        child: Text(label,
-            style: TextStyle(
-                color: color, fontSize: 10, fontWeight: FontWeight.w700)),
+          color: color.withValues(alpha: .14),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       );
 }

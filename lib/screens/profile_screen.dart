@@ -7,6 +7,7 @@ import '../models/task_item.dart';
 import '../models/user_profile.dart';
 import '../services/profile_service.dart';
 import 'auth/login_screen.dart';
+import 'clock_alarm_list_screen.dart';
 import 'edit_profile_screen.dart';
 import 'sound_selection_screen.dart';
 
@@ -169,9 +170,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         content: const SingleChildScrollView(
           child: Text(
             'AlertBox respects your privacy.\n\n'
-            '• Local Data Ownership: All your tasks, custom audio files, and alarm settings are stored locally on your device.\n'
-            '• Offline Capabilities: AlertBox operates completely offline.\n'
-            '• Zero Data Harvesting: Your personal data and audio recordings are never collected or sold to third parties.',
+            'â€¢ Local Data Ownership: All your tasks, custom audio files, and alarm settings are stored locally on your device.\n'
+            'â€¢ Offline Capabilities: AlertBox operates completely offline.\n'
+            'â€¢ Zero Data Harvesting: Your personal data and audio recordings are never collected or sold to third parties.',
             style: TextStyle(color: AppTheme.textMuted, fontSize: 13, height: 1.5),
           ),
         ),
@@ -442,6 +443,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       secondary: const Icon(Icons.notifications_outlined, color: AppTheme.accentCyan),
                       title: const Text('Task Notifications', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                       subtitle: const Text('Receive scheduled task alarm alerts', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                    ),
+                    const Divider(color: Colors.white10, height: 1),
+
+                    // Clock Alarms Shortcut
+                    ListTile(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ClockAlarmListScreen(),
+                          ),
+                        );
+                      },
+                      leading: const Icon(Icons.alarm_rounded, color: AppTheme.accentCyan),
+                      title: const Text('Clock Alarms', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      subtitle: const Text('Wake-up alarms, weekday repeats & snooze', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.textMuted),
                     ),
                     const Divider(color: Colors.white10, height: 1),
 

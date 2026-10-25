@@ -170,7 +170,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     );
 
     final now = DateTime.now();
-    if (scheduledDateTime.isBefore(now.subtract(const Duration(minutes: 2)))) {
+    if (!scheduledDateTime.isAfter(now)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Row(

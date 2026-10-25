@@ -1,23 +1,23 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import '../app.dart';
 import '../models/task_item.dart';
 import '../screens/alarm_screen.dart';
+import 'clock_alarm_service.dart';
 
 @pragma('vm:entry-point')
 void notificationTapBackground(NotificationResponse response) {
   final payload = response.payload;
   debugPrint(
       '[AlarmService] Background notification response received for task ID: $payload');
-  if (payload != null && payload.isNotEmpty) {
-    navigatorKey.currentState?.push(
-      MaterialPageRoute(
-        builder: (context) => AlarmScreen(taskId: payload),
-      ),
-    );
-  }
+  // This callback may run on a background isolate, where Flutter's UI
+  // Navigator is not available. The main isolate receives the launch details
+  // or foreground response and performs the navigation safely.
 }
 
 class AlarmPermissionStatus {
@@ -43,16 +43,45 @@ class AlarmService {
   static final AlarmService instance = AlarmService._init();
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
+  static const MethodChannel _fullScreenIntentChannel =
+      MethodChannel('com.example.taskalert/full_screen_intent');
 
   bool _isInitialized = false;
+  Future<void>? _initializationFuture;
   AlarmPermissionStatus? _permissionStatus;
+  final Map<String, Timer> _foregroundAlarmTimers = <String, Timer>{};
+  String? _pendingAlarmTaskId;
+  String? _lastQueuedAlarmTaskId;
+  DateTime? _lastQueuedAlarmAt;
+  bool _navigationScheduled = false;
+  int _navigationAttempts = 0;
 
   AlarmService._init();
 
   AlarmPermissionStatus? get permissionStatus => _permissionStatus;
 
-  /// Initialize notification settings, timezones, and permission requests
+  /// Initialize notification settings, timezones, and permission diagnostics.
   Future<void> init() async {
+    if (_isInitialized) return;
+
+    final inFlight = _initializationFuture;
+    if (inFlight != null) {
+      await inFlight;
+      return;
+    }
+
+    final initialization = _initialize();
+    _initializationFuture = initialization;
+    try {
+      await initialization;
+    } finally {
+      if (identical(_initializationFuture, initialization)) {
+        _initializationFuture = null;
+      }
+    }
+  }
+
+  Future<void> _initialize() async {
     if (_isInitialized) return;
 
     tz.initializeTimeZones();
@@ -61,8 +90,7 @@ class AlarmService {
         '[AlarmService] Initializing on device timezone ${deviceNow.timeZoneName} '
         '(${deviceNow.timeZoneOffset}). Scheduled times will be converted to UTC epochs.');
 
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings('ic_stat_alertbox');
     const initSettings = InitializationSettings(android: androidSettings);
 
     await _notificationsPlugin.initialize(
@@ -70,21 +98,27 @@ class AlarmService {
       onDidReceiveNotificationResponse: (response) {
         final payload = response.payload;
         debugPrint(
-            '[AlarmService] Foreground notification response received for task ID: $payload');
+            '[AlarmService] Foreground notification response received: $payload');
         if (payload != null && payload.isNotEmpty) {
-          navigatorKey.currentState?.push(
-            MaterialPageRoute(
-              builder: (context) => AlarmScreen(taskId: payload),
-            ),
-          );
+          if (payload.startsWith('clock_alarm:')) {
+            final alarmId = payload.substring('clock_alarm:'.length);
+            ClockAlarmService.instance.navigateToRingingScreen(alarmId);
+          } else {
+            navigatorKey.currentState?.push(
+              MaterialPageRoute(
+                builder: (context) => AlarmScreen(taskId: payload),
+              ),
+            );
+          }
         }
       },
       onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
 
-    // Request Android 13+ notification access, exact alarms, and full-screen
-    // intent access. These permissions are independently controlled on real
-    // devices, especially on Android 13 and newer.
+    // Create the channel during initialization, but do not launch Android
+    // Settings before the first screen is visible. Exact-alarm access is a
+    // special app access on Android 12+ and must be granted by the user.
+    // The task screen shows the permission action when scheduling is blocked.
     final androidPlugin =
         _notificationsPlugin.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
@@ -102,25 +136,15 @@ class AlarmService {
       );
       await androidPlugin.createNotificationChannel(androidChannel);
 
-      final notifGranted = await androidPlugin.requestNotificationsPermission();
-      final exactGranted = await androidPlugin.requestExactAlarmsPermission();
-      bool? fullScreenGranted;
-      try {
-        fullScreenGranted =
-            await androidPlugin.requestFullScreenIntentPermission();
-      } catch (e, stack) {
-        debugPrint(
-            '[AlarmService] Full-screen intent permission check failed: $e\n$stack');
-      }
-
       final notificationsEnabled =
           await androidPlugin.areNotificationsEnabled();
       final exactAlarmsEnabled =
           await androidPlugin.canScheduleExactNotifications();
+      final fullScreenIntentEnabled = await _readFullScreenIntentAccess();
       _permissionStatus = AlarmPermissionStatus(
-        notificationsEnabled: notificationsEnabled ?? notifGranted,
-        exactAlarmsEnabled: exactAlarmsEnabled ?? exactGranted,
-        fullScreenIntentEnabled: fullScreenGranted,
+        notificationsEnabled: notificationsEnabled,
+        exactAlarmsEnabled: exactAlarmsEnabled,
+        fullScreenIntentEnabled: fullScreenIntentEnabled,
       );
 
       debugPrint(
@@ -140,15 +164,14 @@ class AlarmService {
     if (launchDetails?.didNotificationLaunchApp ?? false) {
       final payload = launchDetails?.notificationResponse?.payload;
       debugPrint(
-          '[AlarmService] App launched from notification for task ID: $payload');
+          '[AlarmService] App launched from notification: $payload');
       if (payload != null && payload.isNotEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          navigatorKey.currentState?.push(
-            MaterialPageRoute(
-              builder: (context) => AlarmScreen(taskId: payload),
-            ),
-          );
-        });
+        if (payload.startsWith('clock_alarm:')) {
+          final alarmId = payload.substring('clock_alarm:'.length);
+          ClockAlarmService.instance.navigateToRingingScreen(alarmId);
+        } else {
+          _queueAlarmNavigation(payload);
+        }
       }
     }
 
@@ -172,7 +195,7 @@ class AlarmService {
     final status = AlarmPermissionStatus(
       notificationsEnabled: await androidPlugin.areNotificationsEnabled(),
       exactAlarmsEnabled: await androidPlugin.canScheduleExactNotifications(),
-      fullScreenIntentEnabled: _permissionStatus?.fullScreenIntentEnabled,
+      fullScreenIntentEnabled: await _readFullScreenIntentAccess(),
     );
     _permissionStatus = status;
     debugPrint('[AlarmService] Refreshed Android capability status: $status');
@@ -191,9 +214,19 @@ class AlarmService {
     if (androidPlugin == null) return _permissionStatus;
 
     try {
+      // These calls are intentionally made only from an explicit user action.
+      // requestExactAlarmsPermission() opens the app's Alarms & reminders
+      // settings page on Android 12+; it is not a normal runtime dialog.
       await androidPlugin.requestNotificationsPermission();
       await androidPlugin.requestExactAlarmsPermission();
-      await androidPlugin.requestFullScreenIntentPermission();
+      try {
+        await androidPlugin.requestFullScreenIntentPermission();
+      } catch (e, stack) {
+        // Full-screen access is optional. A normal notification must still be
+        // usable when the device or Android version does not offer this access.
+        debugPrint(
+            '[AlarmService] Full-screen intent permission request failed: $e\n$stack');
+      }
     } catch (e, stack) {
       debugPrint(
           '[AlarmService] Failed to reopen alarm permission settings: $e\n$stack');
@@ -201,9 +234,122 @@ class AlarmService {
     return refreshPermissionStatus();
   }
 
+  Future<bool> _readFullScreenIntentAccess() async {
+    try {
+      final enabled = await _fullScreenIntentChannel
+          .invokeMethod<bool>('canUseFullScreenIntent');
+      final result = enabled ?? false;
+      debugPrint(
+          '[AlarmService] Full-screen intent access is ${result ? 'enabled' : 'disabled'}');
+      return result;
+    } catch (e, stack) {
+      // If the native capability check is unavailable, use the safe fallback:
+      // post a normal high-priority notification instead of requesting a
+      // full-screen launch that could be suppressed by Android.
+      debugPrint(
+          '[AlarmService] Could not read full-screen intent access: $e\n$stack');
+      return false;
+    }
+  }
+
+  void _queueAlarmNavigation(String taskId) {
+    if (taskId.startsWith('clock_alarm:')) {
+      final alarmId = taskId.substring('clock_alarm:'.length);
+      ClockAlarmService.instance.navigateToRingingScreen(alarmId);
+      return;
+    }
+
+    final now = DateTime.now();
+    if (_lastQueuedAlarmTaskId == taskId &&
+        _lastQueuedAlarmAt != null &&
+        now.difference(_lastQueuedAlarmAt!) < const Duration(seconds: 5)) {
+      debugPrint(
+          '[AlarmService] Ignoring duplicate alarm navigation for task $taskId');
+      return;
+    }
+
+    _lastQueuedAlarmTaskId = taskId;
+    _lastQueuedAlarmAt = now;
+    _pendingAlarmTaskId = taskId;
+    _navigationAttempts = 0;
+    _scheduleAlarmNavigationDrain();
+  }
+
+  void _scheduleAlarmNavigationDrain() {
+    if (_navigationScheduled || _pendingAlarmTaskId == null) return;
+    _navigationScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _navigationScheduled = false;
+      _drainAlarmNavigation();
+    });
+  }
+
+  void _drainAlarmNavigation() {
+    final taskId = _pendingAlarmTaskId;
+    if (taskId == null) return;
+
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) {
+      _navigationAttempts++;
+      if (_navigationAttempts <= 50) {
+        Timer(const Duration(milliseconds: 100),
+            _scheduleAlarmNavigationDrain);
+      } else {
+        debugPrint(
+            '[AlarmService] Navigator was unavailable after waiting for alarm task $taskId');
+        _pendingAlarmTaskId = null;
+      }
+      return;
+    }
+
+    _pendingAlarmTaskId = null;
+    debugPrint('[AlarmService] Opening alarm screen for task ID $taskId');
+    unawaited(navigator.push(
+      MaterialPageRoute(
+        builder: (context) => AlarmScreen(taskId: taskId),
+      ),
+    ));
+  }
+
+  void _cancelForegroundAlarmTimer(String taskId) {
+    _foregroundAlarmTimers.remove(taskId)?.cancel();
+  }
+
+  void _scheduleForegroundAlarmTimer(TaskItem task) {
+    _cancelForegroundAlarmTimer(task.id);
+    final delay = task.scheduledDateTime.difference(DateTime.now());
+    if (delay.isNegative) return;
+
+    _foregroundAlarmTimers[task.id] = Timer(delay, () {
+      _foregroundAlarmTimers.remove(task.id);
+      // Android intentionally keeps the user in the current activity while
+      // the device is being actively used. The full-screen notification path
+      // handles background/locked launches; this timer covers the app-open
+      // case without trying to bypass Android's background-launch rules.
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        debugPrint(
+            '[AlarmService] Foreground alarm time reached for task ${task.id}');
+        _queueAlarmNavigation(task.id);
+      }
+    });
+  }
+
   /// Generate a stable numeric notification ID from task ID string
   int _getNotificationId(String taskId) {
-    return taskId.hashCode.abs() & 0x7FFFFFFF;
+    // Dart's String.hashCode is not a persistence contract across process
+    // launches. Task IDs are millisecond timestamps, so use the timestamp
+    // directly and fall back to a deterministic code-unit hash for old data.
+    final parsed = int.tryParse(taskId);
+    if (parsed != null) {
+      return parsed & 0x7FFFFFFF;
+    }
+
+    var hash = 0x811C9DC5;
+    for (final codeUnit in taskId.codeUnits) {
+      hash ^= codeUnit;
+      hash = (hash * 0x01000193) & 0x7FFFFFFF;
+    }
+    return hash == 0 ? 1 : hash;
   }
 
   /// Schedule a notification alarm for an eligible task
@@ -212,6 +358,7 @@ class AlarmService {
       await init();
     }
 
+    _cancelForegroundAlarmTimer(task.id);
     await refreshPermissionStatus();
     if (_permissionStatus?.notificationsEnabled == false) {
       debugPrint(
@@ -239,7 +386,7 @@ class AlarmService {
     // Cancel any existing alarm with this ID first to prevent duplicates
     await _notificationsPlugin.cancel(notificationId);
 
-    const androidDetails = AndroidNotificationDetails(
+    final androidDetails = AndroidNotificationDetails(
       _alarmChannelId,
       'AlertBox High-Priority Alarms',
       channelDescription:
@@ -248,19 +395,29 @@ class AlarmService {
       priority: Priority.high,
       playSound: true,
       enableVibration: true,
-      fullScreenIntent: true,
+      fullScreenIntent: _permissionStatus?.fullScreenIntentEnabled == true,
       category: AndroidNotificationCategory.alarm,
       audioAttributesUsage: AudioAttributesUsage.alarm,
       visibility: NotificationVisibility.public,
+      icon: 'ic_stat_alertbox',
     );
 
-    const notificationDetails = NotificationDetails(android: androidDetails);
+    final notificationDetails = NotificationDetails(android: androidDetails);
 
-    // Convert the local wall-clock value to a UTC TZDateTime so Android receives
-    // the same absolute instant regardless of the device timezone.
-    final tzDateTime = tz.TZDateTime.from(
-      task.scheduledDateTime.toUtc(),
-      tz.getLocation('UTC'),
+    // DateTime values created by the date/time pickers are device-local. Turn
+    // that instant into an explicit UTC TZDateTime. Android AlarmManager uses
+    // the UTC epoch, so this preserves the selected local wall-clock time on
+    // every device timezone without relying on an abbreviated timezone name.
+    final scheduledUtc = task.scheduledDateTime.toUtc();
+    final tzDateTime = tz.TZDateTime.utc(
+      scheduledUtc.year,
+      scheduledUtc.month,
+      scheduledUtc.day,
+      scheduledUtc.hour,
+      scheduledUtc.minute,
+      scheduledUtc.second,
+      scheduledUtc.millisecond,
+      scheduledUtc.microsecond,
     );
 
     debugPrint('[AlarmService] Scheduling alarm for task ID "${task.id}":');
@@ -280,7 +437,7 @@ class AlarmService {
     try {
       await _notificationsPlugin.zonedSchedule(
         notificationId,
-        '⏰ Task Alarm: ${task.title}',
+        'â° Task Alarm: ${task.title}',
         task.description.isNotEmpty
             ? task.description
             : 'Your task time has arrived!',
@@ -303,6 +460,7 @@ class AlarmService {
             '[AlarmService] Exact schedule verification failed for task ${task.id}.');
         return false;
       }
+      _scheduleForegroundAlarmTimer(task);
       return true;
     } catch (e, stack) {
       debugPrint('[AlarmService] Exact alarm schedule failed for task ${task.id}: $e\n$stack');
@@ -316,6 +474,7 @@ class AlarmService {
       await init();
     }
     final notificationId = _getNotificationId(taskId);
+    _cancelForegroundAlarmTimer(taskId);
     await _notificationsPlugin.cancel(notificationId);
     debugPrint(
         '[AlarmService] Cancelled notification ID $notificationId for task $taskId');

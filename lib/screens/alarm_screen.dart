@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/theme/app_theme.dart';
@@ -36,7 +38,12 @@ class _AlarmScreenState extends State<AlarmScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1300),
     );
-    _loadTaskAndPlayAlarm();
+    // Let the loading frame render before touching SQLite or initializing the
+    // native audio player. This avoids a cold full-screen launch appearing as
+    // a blank window on slower physical devices.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_loadTaskAndPlayAlarm());
+    });
   }
 
   @override

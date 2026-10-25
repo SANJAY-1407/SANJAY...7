@@ -16,6 +16,7 @@ import '../widgets/premium_donut_chart.dart';
 import 'calendar_screen.dart';
 import 'profile_screen.dart';
 import 'task_form_screen.dart';
+import 'clock_alarm_list_screen.dart';
 
 enum StatusFilter { all, pending, completed, overdue }
 
@@ -28,7 +29,8 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with WidgetsBindingObserver {
   int _currentBottomNavIndex = 0;
 
   List<TaskItem> _tasks = [];
@@ -55,18 +57,44 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadTasksFromDatabase();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_isLoading) {
+      _refreshAlarmsAfterReturningFromSettings();
+    }
+  }
+
+  Future<void> _refreshAlarmsAfterReturningFromSettings() async {
+    try {
+      // The user may have granted exact alarms or notifications in Android
+      // Settings while this process was paused. Refresh the capability state
+      // and reconcile persisted tasks with the system alarm manager.
+      await AlarmService.instance.refreshPermissionStatus();
+      await AlarmService.instance.reconcileAllAlarms(_tasks);
+    } catch (e) {
+      debugPrint('Alarm refresh after app resume failed: $e');
+    }
   }
 
   String get _timeGreeting {
     final hour = DateTime.now().hour;
 
     if (hour < 12) {
-      return 'Good Morning! ☀️';
+      return 'Good Morning! â˜€ï¸';
     } else if (hour < 17) {
-      return 'Good Afternoon! 🌤️';
+      return 'Good Afternoon! ðŸŒ¤ï¸';
     } else {
-      return 'Good Evening! 🌙';
+      return 'Good Evening! ðŸŒ™';
     }
   }
 
@@ -572,30 +600,62 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                 ),
-                IconButton(
-                  onPressed: () {
-                    HapticFeedback.selectionClick();
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('No new notifications'),
-                        duration: Duration(seconds: 2),
+                Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Clock Alarms',
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ClockAlarmListScreen(),
+                          ),
+                        );
+                      },
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cardNavy,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppTheme.accentCyan.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.alarm_rounded,
+                          color: AppTheme.accentCyan,
+                          size: 20,
+                        ),
                       ),
-                    );
-                  },
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardNavy,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white10),
                     ),
-                    child: const Icon(
-                      Icons.notifications_active_outlined,
-                      color: AppTheme.textWhite,
-                      size: 20,
+                    const SizedBox(width: 6),
+                    IconButton(
+                      onPressed: () {
+                        HapticFeedback.selectionClick();
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('No new notifications'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cardNavy,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: const Icon(
+                          Icons.notifications_active_outlined,
+                          color: AppTheme.textWhite,
+                          size: 20,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -631,9 +691,105 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const SizedBox(height: 20),
 
-          // 3. Today Statistics + NEW Premium Animated Progress Ring
+          // Clock Alarms Quick-Access Card
           AnimatedEntry(
             index: 2,
+            child: GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ClockAlarmListScreen(),
+                  ),
+                );
+              },
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.cardNavy,
+                      AppTheme.cardNavy.withValues(alpha: 0.85),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: AppTheme.accentCyan.withValues(alpha: 0.25),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.accentCyan.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.primaryGradient,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.alarm_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Clock Alarms',
+                                style: TextStyle(
+                                  color: AppTheme.textWhite,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              SizedBox(width: 6),
+                              Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 12,
+                                color: AppTheme.accentCyan,
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Wake-up alarms, weekday repeats & snooze',
+                            style: TextStyle(
+                              color: AppTheme.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppTheme.accentCyan,
+                      size: 24,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // 3. Today Statistics + NEW Premium Animated Progress Ring
+          AnimatedEntry(
+            index: 3,
             child: ProgressCard(
               totalTasks: _totalTodayCount,
               completedTasks: _completedTodayCount,
@@ -670,7 +826,7 @@ class _HomeScreenState extends State<HomeScreen> {
             AnimatedEntry(
               index: 5,
               child: EmptyState(
-                title: 'No Tasks Found! 📝',
+                title: 'No Tasks Found! ðŸ“',
                 message:
                     'Your saved task list is empty. Use New Task in the navigation bar when you are ready to begin.',
               ),
@@ -679,7 +835,7 @@ class _HomeScreenState extends State<HomeScreen> {
             AnimatedEntry(
               index: 5,
               child: EmptyState(
-                title: 'No Matching Tasks 🔍',
+                title: 'No Matching Tasks ðŸ”',
                 message:
                     'No tasks match your selected filter criteria. Try resetting filters.',
                 actionLabel: 'Reset Filters',
@@ -830,7 +986,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(width: 8),
                 _buildStatusFilterChip(
                   StatusFilter.overdue,
-                  'Overdue ⚠️',
+                  'Overdue âš ï¸',
                 ),
               ],
             ),

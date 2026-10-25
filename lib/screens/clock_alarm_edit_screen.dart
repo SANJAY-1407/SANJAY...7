@@ -231,7 +231,18 @@ class _ClockAlarmEditScreenState extends State<ClockAlarmEditScreen> {
       }
 
       // Schedule exact alarm with AlarmManager
-      await ClockAlarmService.instance.scheduleAlarm(alarm);
+      final scheduled = await ClockAlarmService.instance.scheduleAlarm(alarm);
+      if (!scheduled) {
+        if (!mounted) return;
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Alarm saved, but alarm permissions are incomplete. Enable them in Settings to guarantee ringing.'),
+          ),
+        );
+        return;
+      }
 
       if (!mounted) return;
       final countdown = alarm.timeUntilNextOccurrence(DateTime.now());

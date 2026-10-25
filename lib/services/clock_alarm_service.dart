@@ -4,6 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import '../app.dart';
 import '../models/clock_alarm.dart';
+import '../models/task_item.dart';
 import '../screens/clock_alarm_ringing_screen.dart';
 import 'alarm_service.dart';
 import 'clock_alarm_database_helper.dart';
@@ -112,27 +113,14 @@ class ClockAlarmService {
       return false;
     }
 
+    if (permissionStatus?.fullScreenIntentEnabled == false) {
+      debugPrint(
+          '[ClockAlarmService] Full-screen intent permission is not permitted; cannot guarantee ringing alarm delivery.');
+      return false;
+    }
+
     final fullScreenEnabled = permissionStatus?.fullScreenIntentEnabled ?? false;
     final baseId = getAlarmBaseId(alarm.numericId);
-
-    final androidDetails = AndroidNotificationDetails(
-      channelId,
-      channelName,
-      channelDescription: channelDescription,
-      importance: Importance.max,
-      priority: Priority.max,
-      playSound: true,
-      enableVibration: alarm.vibrate,
-      fullScreenIntent: fullScreenEnabled,
-      category: AndroidNotificationCategory.alarm,
-      audioAttributesUsage: AudioAttributesUsage.alarm,
-      visibility: NotificationVisibility.public,
-      icon: 'ic_stat_alertbox',
-      ongoing: true,
-      autoCancel: false,
-    );
-
-    final notificationDetails = NotificationDetails(android: androidDetails);
     final now = DateTime.now();
 
     try {
@@ -141,16 +129,14 @@ class ClockAlarmService {
         final nextOccurrence = alarm.getNextOccurrence(now);
         final tzDateTime = _convertToTzDateTime(nextOccurrence);
 
-        await _notificationsPlugin.zonedSchedule(
+        await _scheduleNotification(
           baseId,
           alarm.label.isNotEmpty ? '⏰ Alarm: ${alarm.label}' : '⏰ Clock Alarm',
           '${alarm.formattedTime} ${alarm.period} • Tap to view',
           tzDateTime,
-          notificationDetails,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
           payload: 'clock_alarm:${alarm.id}',
+          fullScreenIntent: fullScreenEnabled,
+          enableVibration: alarm.vibrate,
         );
 
         _scheduleForegroundTimer(alarm.id, nextOccurrence);
@@ -162,17 +148,15 @@ class ClockAlarmService {
           final tzDateTime = _convertToTzDateTime(nextDate);
           final notifId = baseId + weekday;
 
-          await _notificationsPlugin.zonedSchedule(
+          await _scheduleNotification(
             notifId,
             alarm.label.isNotEmpty ? '⏰ Alarm: ${alarm.label}' : '⏰ Clock Alarm',
             '${alarm.formattedTime} ${alarm.period} • ${alarm.repeatSummary}',
             tzDateTime,
-            notificationDetails,
-            androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-            uiLocalNotificationDateInterpretation:
-                UILocalNotificationDateInterpretation.absoluteTime,
-            matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
             payload: 'clock_alarm:${alarm.id}',
+            fullScreenIntent: fullScreenEnabled,
+            enableVibration: alarm.vibrate,
+            matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
           );
 
           debugPrint(
@@ -209,6 +193,52 @@ class ClockAlarmService {
     debugPrint('[ClockAlarmService] Cancelled all notification slots for alarm ${alarm.id}');
   }
 
+  /// Schedule a task reminder through the same Android alarm/notification
+  /// engine used by Clock Alarms. Task persistence remains owned by
+  /// [DatabaseHelper] through [AlarmService].
+  Future<void> scheduleTaskReminder(
+    TaskItem task,
+    int notificationId, {
+    required bool fullScreenIntent,
+  }) async {
+    if (!_isInitialized) {
+      await init();
+    }
+
+    await cancelNotification(notificationId);
+    final scheduledUtc = task.scheduledDateTime.toUtc();
+    final tzDateTime = tz.TZDateTime.utc(
+      scheduledUtc.year,
+      scheduledUtc.month,
+      scheduledUtc.day,
+      scheduledUtc.hour,
+      scheduledUtc.minute,
+      scheduledUtc.second,
+      scheduledUtc.millisecond,
+      scheduledUtc.microsecond,
+    );
+
+    await _scheduleNotification(
+      notificationId,
+      '⏰ Task Alarm: ${task.title}',
+      task.description.isNotEmpty
+          ? task.description
+          : '${task.formattedTime} • Tap to view',
+      tzDateTime,
+      payload: 'task_alarm:${task.id}',
+      fullScreenIntent: fullScreenIntent,
+      enableVibration: true,
+    );
+
+    debugPrint(
+        '[ClockAlarmService] Task reminder scheduled through shared alarm engine for ${task.id} at ${task.scheduledDateTime}');
+  }
+
+  /// Cancel a notification slot managed by the shared alarm engine.
+  Future<void> cancelNotification(int notificationId) async {
+    await _notificationsPlugin.cancel(notificationId);
+  }
+
   /// Schedule a snooze occurrence for an alarm
   Future<bool> scheduleSnooze(ClockAlarm alarm) async {
     if (!_isInitialized) {
@@ -225,37 +255,17 @@ class ClockAlarmService {
     final permissionStatus = await AlarmService.instance.refreshPermissionStatus();
     final fullScreenEnabled = permissionStatus?.fullScreenIntentEnabled ?? false;
 
-    final androidDetails = AndroidNotificationDetails(
-      channelId,
-      channelName,
-      channelDescription: channelDescription,
-      importance: Importance.max,
-      priority: Priority.max,
-      playSound: true,
-      enableVibration: alarm.vibrate,
-      fullScreenIntent: fullScreenEnabled,
-      category: AndroidNotificationCategory.alarm,
-      audioAttributesUsage: AudioAttributesUsage.alarm,
-      visibility: NotificationVisibility.public,
-      icon: 'ic_stat_alertbox',
-      ongoing: true,
-      autoCancel: false,
-    );
-
-    final notificationDetails = NotificationDetails(android: androidDetails);
     final tzDateTime = _convertToTzDateTime(snoozeTime);
 
     try {
-      await _notificationsPlugin.zonedSchedule(
+      await _scheduleNotification(
         snoozeNotifId,
         alarm.label.isNotEmpty ? '⏰ Snoozed: ${alarm.label}' : '⏰ Snoozed Alarm',
         'Ringing again at ${_formatTime(snoozeTime)} (${alarm.snoozeMinutes} min snooze)',
         tzDateTime,
-        notificationDetails,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
         payload: 'clock_alarm:${alarm.id}',
+        fullScreenIntent: fullScreenEnabled,
+        enableVibration: alarm.vibrate,
       );
 
       _scheduleForegroundTimer(alarm.id, snoozeTime);
@@ -381,6 +391,69 @@ class ClockAlarmService {
 
   void _cancelForegroundTimer(String alarmId) {
     _foregroundTimers.remove(alarmId)?.cancel();
+  }
+
+  AndroidNotificationDetails _buildAlarmDetails({
+    required bool fullScreenIntent,
+    required bool enableVibration,
+  }) {
+    return AndroidNotificationDetails(
+      channelId,
+      channelName,
+      channelDescription: channelDescription,
+      importance: Importance.max,
+      priority: Priority.max,
+      playSound: true,
+      enableVibration: enableVibration,
+      fullScreenIntent: fullScreenIntent,
+      category: AndroidNotificationCategory.alarm,
+      audioAttributesUsage: AudioAttributesUsage.alarm,
+      visibility: NotificationVisibility.public,
+      icon: 'ic_stat_alertbox',
+      ongoing: true,
+      autoCancel: false,
+    );
+  }
+
+  Future<void> _scheduleNotification(
+    int notificationId,
+    String title,
+    String body,
+    tz.TZDateTime scheduledDate, {
+    required String payload,
+    required bool fullScreenIntent,
+    required bool enableVibration,
+    DateTimeComponents? matchDateTimeComponents,
+  }) async {
+    final notificationDetails = NotificationDetails(
+      android: _buildAlarmDetails(
+        fullScreenIntent: fullScreenIntent,
+        enableVibration: enableVibration,
+      ),
+    );
+
+    await _notificationsPlugin.zonedSchedule(
+      notificationId,
+      title,
+      body,
+      scheduledDate,
+      notificationDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: matchDateTimeComponents,
+      payload: payload,
+    );
+
+    final pending = await _notificationsPlugin.pendingNotificationRequests();
+    final registered = pending.any(
+      (request) => request.id == notificationId && request.payload == payload,
+    );
+    if (!registered) {
+      throw StateError(
+        'Shared exact alarm request was not registered for notification $notificationId',
+      );
+    }
   }
 
   tz.TZDateTime _convertToTzDateTime(DateTime localDateTime) {

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
 import '../app.dart';
 import '../models/task_item.dart';
 import '../screens/alarm_screen.dart';
@@ -376,67 +375,28 @@ class AlarmService {
       return false;
     }
 
-    // Cancel the old slot before checking permissions as well. This matters
-    // when an existing task is edited and the replacement cannot be scheduled:
-    // the old due time must not remain armed behind the scenes.
-    await _notificationsPlugin.cancel(notificationId);
+    if (permissions?.fullScreenIntentEnabled == false) {
+      debugPrint(
+          '[AlarmService] Full-screen intent permission is not permitted; cannot guarantee task alarm ${task.id}.');
+      return false;
+    }
 
     final fullScreenEnabled = permissions?.fullScreenIntentEnabled ?? false;
-
-    // Keep task reminders on their own channel. Clock alarms use a separate
-    // channel and notification ID space, so the two features cannot overlap.
-    final androidDetails = AndroidNotificationDetails(
-      taskAlarmChannelId,
-      'AlertBox High-Priority Alarms',
-      channelDescription:
-          'High-priority sound and full-screen alarm reminders for scheduled tasks',
-      importance: Importance.max,
-      priority: Priority.max,
-      playSound: true,
-      enableVibration: true,
-      fullScreenIntent: fullScreenEnabled,
-      category: AndroidNotificationCategory.alarm,
-      audioAttributesUsage: AudioAttributesUsage.alarm,
-      visibility: NotificationVisibility.public,
-      icon: 'ic_stat_alertbox',
-      ongoing: true,
-      autoCancel: false,
-    );
-
-    final notificationDetails = NotificationDetails(android: androidDetails);
-
-    final scheduledUtc = task.scheduledDateTime.toUtc();
-    final tzDateTime = tz.TZDateTime.utc(
-      scheduledUtc.year,
-      scheduledUtc.month,
-      scheduledUtc.day,
-      scheduledUtc.hour,
-      scheduledUtc.minute,
-      scheduledUtc.second,
-      scheduledUtc.millisecond,
-      scheduledUtc.microsecond,
-    );
 
     debugPrint('[AlarmService] Scheduling exact alarm for task "${task.title}":');
     debugPrint('  - Task ID:                   ${task.id}');
     debugPrint('  - Notification ID:           $notificationId');
     debugPrint('  - Target Local Scheduled:    ${task.scheduledDateTime}');
-    debugPrint('  - Target UTC TZDateTime:     $tzDateTime');
     debugPrint('  - FullScreenIntent Enabled:  $fullScreenEnabled');
 
     try {
-      await _notificationsPlugin.zonedSchedule(
+      // ClockAlarmService owns the shared Android AlarmManager-backed
+      // scheduling path. Task persistence and task-specific sound playback
+      // remain in this service and AlarmScreen.
+      await ClockAlarmService.instance.scheduleTaskReminder(
+        task,
         notificationId,
-        '⏰ Task Alarm: ${task.title}',
-        task.description.isNotEmpty
-            ? task.description
-            : '${task.formattedTime} • Tap to view',
-        tzDateTime,
-        notificationDetails,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        payload: 'task_alarm:${task.id}',
+        fullScreenIntent: fullScreenEnabled,
       );
 
       _scheduleForegroundAlarmTimer(task);
@@ -457,7 +417,7 @@ class AlarmService {
     }
     final notificationId = getTaskNotificationId(taskId);
     _cancelForegroundAlarmTimer(taskId);
-    await _notificationsPlugin.cancel(notificationId);
+    await ClockAlarmService.instance.cancelNotification(notificationId);
     debugPrint(
         '[AlarmService] Cancelled notification ID $notificationId for task $taskId');
   }

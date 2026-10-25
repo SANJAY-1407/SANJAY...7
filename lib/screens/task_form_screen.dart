@@ -345,6 +345,9 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           } else if (permissions?.exactAlarmsEnabled == false) {
             reason =
                 'Exact alarm permission is disabled. Please enable it in Settings.';
+          } else if (permissions?.fullScreenIntentEnabled == false) {
+            reason =
+                'Full-screen alarm permission is disabled. Please enable it in Settings.';
           }
 
           if (!mounted) return;
